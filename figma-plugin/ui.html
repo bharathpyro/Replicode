@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Replicode Figma Importer</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, "SF Pro Text", system-ui, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: var(--figma-color-bg, #ffffff);
+        color: var(--figma-color-text, #111827);
+      }
+
+      .app {
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.3;
+      }
+
+      p {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--figma-color-text-secondary, #475569);
+      }
+
+      .actions {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+      }
+
+      button {
+        border: 1px solid var(--figma-color-border, #dbe1ea);
+        border-radius: 10px;
+        background: var(--figma-color-bg-secondary, #ffffff);
+        color: inherit;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+
+      button.primary {
+        background: #111827;
+        border-color: #111827;
+        color: white;
+      }
+
+      select {
+        border: 1px solid var(--figma-color-border, #dbe1ea);
+        border-radius: 10px;
+        background: var(--figma-color-bg-secondary, #ffffff);
+        color: inherit;
+        font: inherit;
+        font-size: 12px;
+        padding: 10px 12px;
+      }
+
+      textarea {
+        min-height: 260px;
+        width: 100%;
+        resize: vertical;
+        border: 1px solid var(--figma-color-border, #dbe1ea);
+        border-radius: 12px;
+        background: var(--figma-color-bg-secondary, #f8fafc);
+        color: inherit;
+        font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        padding: 12px;
+        box-sizing: border-box;
+      }
+
+      .status {
+        min-height: 18px;
+        font-size: 12px;
+        color: var(--figma-color-text-secondary, #475569);
+      }
+
+      .list {
+        margin: 0;
+        padding-left: 18px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--figma-color-text-secondary, #475569);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1>Replicode Figma Importer</h1>
+        <p>Use "Copy for Figma" in the Chrome extension, then paste the payload here to create editable Figma layers.</p>
+      </header>
+
+      <div class="actions">
+        <button id="pasteClipboard" type="button">Paste clipboard</button>
+        <button id="importPayload" class="primary" type="button">Import to canvas</button>
+      </div>
+
+      <label>
+        <p>Import mode</p>
+        <select id="importMode">
+          <option value="hybrid" selected>Hybrid</option>
+          <option value="accurate">Accurate</option>
+          <option value="editable">Editable</option>
+        </select>
+      </label>
+
+      <textarea id="payload" spellcheck="false" placeholder='Paste the payload from "Copy for Figma" here. Raw JSON capture also works; HTML/CSS export does not.'></textarea>
+
+      <p id="status" class="status">Waiting for a Replicode Figma payload.</p>
+
+      <ul class="list">
+        <li>The importer creates editable frames, text layers, and image placeholders.</li>
+        <li>Auto-layout is inferred where the captured structure looks flex-like.</li>
+        <li>Complex CSS, remote images, and advanced interactions are added as notes, not recreated exactly.</li>
+      </ul>
+    </main>
+
+    <script>
+      const payloadField = document.getElementById("payload")
+      const statusEl = document.getElementById("status")
+
+      function setStatus(text) {
+        statusEl.textContent = text
+      }
+
+      document.getElementById("pasteClipboard").addEventListener("click", async () => {
+        try {
+          const text = await navigator.clipboard.readText()
+          payloadField.value = text
+          setStatus("Clipboard pasted. Review the payload or import it directly.")
+        } catch (error) {
+          setStatus("Clipboard access failed. Paste the payload manually into the textarea.")
+        }
+      })
+
+      document.getElementById("importPayload").addEventListener("click", () => {
+        const payload = payloadField.value.trim()
+        if (!payload) {
+          setStatus("Paste a Replicode Figma payload first.")
+          return
+        }
+
+        if (payload.startsWith("<!-- component.html -->") || payload.includes("/* styles.css */")) {
+          setStatus('HTML/CSS export detected. In the Chrome extension use "Copy for Figma" instead.')
+          return
+        }
+
+        setStatus("Importing capture into the current Figma page...")
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "IMPORT_CAPTURE",
+              payload,
+              options: {
+                mode: document.getElementById("importMode").value
+              }
+            }
+          },
+          "*"
+        )
+      })
+
+      window.onmessage = (event) => {
+        const message = event.data.pluginMessage
+        if (!message || message.type !== "IMPORT_RESULT") {
+          return
+        }
+
+        setStatus(message.ok ? `Imported: ${message.detail}` : `Import failed: ${message.detail}`)
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,101 @@
+:root {
+  color-scheme: light;
+  font-family: "SF Pro Text", "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.popup {
+  padding: 16px;
+}
+
+.popup__header h1 {
+  margin: 4px 0 0;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.popup__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.popup__actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.button {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: white;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: #94a3b8;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  border-color: #dbe1ea;
+}
+
+.button--primary {
+  background: #111827;
+  border-color: #111827;
+  color: white;
+}
+
+.button--ghost {
+  background: #f8fafc;
+}
+
+.popup__card {
+  margin-top: 12px;
+  border: 1px solid #dbe1ea;
+  border-radius: 12px;
+  background: white;
+  padding: 12px;
+}
+
+.popup__card h2 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.popup__card p,
+.popup__list {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.popup__list {
+  padding-left: 18px;
+}
+
+.popup__hint {
+  margin-top: 10px;
+  color: #475569;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

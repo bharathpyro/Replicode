@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UI Extractor Review</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <header class="panel__header">
+        <div>
+          <p class="panel__eyebrow">Replicode</p>
+          <h1>Review capture</h1>
+        </div>
+        <div class="panel__header-actions">
+          <button id="startCapture" class="button button--primary">Start</button>
+          <button id="stopCapture" class="button">Stop</button>
+        </div>
+      </header>
+
+      <section class="card">
+        <div class="card__row">
+          <div>
+            <h2 class="card__title">Status</h2>
+            <p id="statusText" class="status">Waiting for a capture.</p>
+          </div>
+          <button id="refreshState" class="button button--ghost">Refresh</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__row">
+          <h2 class="card__title">Capture options</h2>
+          <button id="recapture" class="button button--ghost">Re-capture</button>
+        </div>
+        <div class="field-grid">
+          <label class="field">
+            <span>Root level</span>
+            <select id="ancestorLevel"></select>
+          </label>
+          <label class="field">
+            <span>Depth</span>
+            <select id="maxDepth">
+              <option value="0">Selected element only</option>
+              <option value="1">1 level deep</option>
+              <option value="2">2 levels deep</option>
+              <option value="4">4 levels deep</option>
+              <option value="full" selected>Full subtree</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Output</span>
+            <select id="outputFormat">
+              <option value="html-css">HTML + CSS</option>
+              <option value="react-css-module">React + CSS Module</option>
+              <option value="figma-import">Figma Import JSON</option>
+              <option value="json">JSON capture</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Summary</h2>
+        <div id="summary" class="summary"></div>
+      </section>
+
+      <section class="card">
+        <div class="card__row">
+          <div>
+            <h2 class="card__title">Interaction recording</h2>
+            <p id="recordingStatus" class="status">Capture hover, focus, and active states from the live page.</p>
+          </div>
+          <div class="panel__header-actions">
+            <button id="startRecording" class="button button--ghost">Start recording</button>
+            <button id="stopRecording" class="button">Stop recording</button>
+          </div>
+        </div>
+        <ul id="interactionList" class="list"></ul>
+      </section>
+
+      <section class="card">
+        <div class="card__row">
+          <h2 class="card__title">Warnings</h2>
+          <button id="clearCapture" class="button button--ghost">Clear</button>
+        </div>
+        <ul id="warnings" class="list"></ul>
+      </section>
+
+      <section class="card">
+        <div class="card__row">
+          <h2 class="card__title">Assets & animations</h2>
+          <button id="copyManifest" class="button button--ghost">Copy manifest</button>
+        </div>
+        <pre id="manifest" class="code-block"></pre>
+      </section>
+
+      <section class="card">
+        <div class="card__row">
+          <h2 class="card__title">Generated output</h2>
+          <div class="panel__header-actions">
+            <button id="copyFigmaPayload" class="button">Copy for Figma</button>
+            <button id="copyCode" class="button button--primary">Copy output</button>
+          </div>
+        </div>
+        <textarea id="codeOutput" class="code-output" spellcheck="false"></textarea>
+      </section>
+    </main>
+
+    <script src="figma-export.js"></script>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

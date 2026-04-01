@@ -1,0 +1,12 @@
+{
+  "name": "Replicode Figma Importer",
+  "api": "1.0.0",
+  "editorType": ["figma"],
+  "main": "code.js",
+  "ui": "ui.html",
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "The plugin imports remote image assets referenced by captured webpage UI payloads so it can recreate image fills during local development."
+  }
+}

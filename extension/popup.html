@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UI Extractor</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup__header">
+        <p class="popup__eyebrow">Replicode</p>
+        <h1>Capture rendered UI into reusable code</h1>
+      </header>
+
+      <div class="popup__actions">
+        <button id="startCapture" class="button button--primary">Start capture</button>
+        <button id="copyForFigma" class="button">Copy for Figma</button>
+        <button id="openReview" class="button">Open review panel</button>
+        <button id="stopCapture" class="button button--ghost">Stop capture</button>
+      </div>
+
+      <section class="popup__card">
+        <h2>Status</h2>
+        <p id="statusText">Ready.</p>
+      </section>
+
+      <section class="popup__card">
+        <h2>How it works</h2>
+        <ol class="popup__list">
+          <li>Start capture.</li>
+          <li>Hover any component and click to select it.</li>
+          <li>Review the capture in the side panel and copy the generated code.</li>
+        </ol>
+        <p class="popup__hint">Shortcut: <code>Cmd/Ctrl + Shift + X</code></p>
+      </section>
+    </main>
+
+    <script src="figma-export.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

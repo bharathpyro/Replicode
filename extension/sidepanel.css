@@ -1,0 +1,156 @@
+:root {
+  color-scheme: light;
+  font-family: "SF Pro Text", "Segoe UI", sans-serif;
+  background: #eff3f8;
+  color: #0f172a;
+}
+
+body {
+  margin: 0;
+  background: #eff3f8;
+}
+
+.panel {
+  padding: 14px;
+}
+
+.panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.panel__header h1 {
+  margin: 4px 0 0;
+  font-size: 22px;
+}
+
+.panel__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.panel__header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.card {
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+}
+
+.card__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.card__title {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.button {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: white;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: #94a3b8;
+}
+
+.button--primary {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: white;
+}
+
+.button--ghost {
+  background: #f8fafc;
+}
+
+.field-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.field select {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: white;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.status,
+.summary,
+.list,
+.code-block,
+.code-output {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.status {
+  margin: 0;
+}
+
+.summary {
+  white-space: pre-wrap;
+}
+
+.list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.code-block {
+  margin: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #dbeafe;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.code-output {
+  width: 100%;
+  min-height: 360px;
+  margin-top: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #020617;
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 12px;
+  box-sizing: border-box;
+  resize: vertical;
+}
