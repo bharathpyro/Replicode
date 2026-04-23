@@ -54,7 +54,11 @@ async function setTabState(tabId, patch) {
   return nextState
 }
 
-async function setCapture(tabId, payload) {
+function hasFrameId(value) {
+  return Number.isInteger(value)
+}
+
+async function setCapture(tabId, payload, frameId) {
   await chrome.storage.local.set({
     [CURRENT_TAB_KEY]: tabId,
     [captureKey(tabId)]: payload
@@ -64,6 +68,7 @@ async function setCapture(tabId, payload) {
     captureMode: false,
     interactionRecording: false,
     hasCapture: true,
+    captureFrameId: hasFrameId(frameId) ? frameId : 0,
     selectedTag: payload?.metadata?.rootTag || null,
     selectedLabel: payload?.metadata?.rootLabel || null,
     lastCaptureAt: payload?.metadata?.capturedAt || null
@@ -94,12 +99,41 @@ async function clearCapture(tabId) {
   })
 }
 
-async function sendToTab(tabId, message) {
+async function getFrameIds(tabId) {
+  if (!chrome.webNavigation?.getAllFrames) {
+    return [0]
+  }
+
   try {
-    const response = await chrome.tabs.sendMessage(tabId, message)
-    return { ok: true, response }
+    const frames = await chrome.webNavigation.getAllFrames({ tabId })
+    const frameIds = (frames || []).map((frame) => frame.frameId).filter((frameId) => Number.isInteger(frameId))
+    return frameIds.length ? [...new Set(frameIds)] : [0]
+  } catch {
+    return [0]
+  }
+}
+
+async function sendToTab(tabId, message, frameId) {
+  try {
+    const response = hasFrameId(frameId)
+      ? await chrome.tabs.sendMessage(tabId, message, { frameId })
+      : await chrome.tabs.sendMessage(tabId, message)
+    return { ok: true, response, frameId: hasFrameId(frameId) ? frameId : null }
   } catch (error) {
-    return { ok: false, error: error?.message || String(error) }
+    return { ok: false, error: error?.message || String(error), frameId: hasFrameId(frameId) ? frameId : null }
+  }
+}
+
+async function sendToAllFrames(tabId, message) {
+  const frameIds = await getFrameIds(tabId)
+  const results = await Promise.all(frameIds.map((frameId) => sendToTab(tabId, message, frameId)))
+  const firstSuccess = results.find((result) => result.ok)
+
+  return {
+    ok: !!firstSuccess,
+    response: firstSuccess?.response || null,
+    results,
+    error: firstSuccess ? null : (results[0]?.error || "Could not reach any frame in the page.")
   }
 }
 
@@ -142,7 +176,7 @@ async function startCapture() {
   })
 
   const panelResult = await openSidePanel(tab.id)
-  const result = await sendToTab(tab.id, { type: "SET_CAPTURE_MODE", enabled: true })
+  const result = await sendToAllFrames(tab.id, { type: "SET_CAPTURE_MODE", enabled: true })
 
   if (!result.ok) {
     await setTabState(tab.id, { captureMode: false })
@@ -166,9 +200,9 @@ async function stopCapture(tabId) {
     return { ok: false, error: "No tab is currently being inspected." }
   }
 
-  await sendToTab(resolvedTabId, { type: "STOP_INTERACTION_RECORDING" })
+  await sendToAllFrames(resolvedTabId, { type: "STOP_INTERACTION_RECORDING" })
   await setTabState(resolvedTabId, { captureMode: false, interactionRecording: false })
-  const result = await sendToTab(resolvedTabId, { type: "SET_CAPTURE_MODE", enabled: false })
+  const result = await sendToAllFrames(resolvedTabId, { type: "SET_CAPTURE_MODE", enabled: false })
 
   return {
     ok: result.ok,
@@ -183,8 +217,10 @@ async function recaptureFromPanel(options) {
     return { ok: false, error: "No active capture tab is available." }
   }
 
+  const tabState = await getTabState(tabId)
+  const targetFrameId = hasFrameId(options?.frameId) ? options.frameId : tabState?.captureFrameId
   await setTabState(tabId, { lastOptions: options })
-  const result = await sendToTab(tabId, { type: "RECAPTURE", options })
+  const result = await sendToTab(tabId, { type: "RECAPTURE", options }, targetFrameId)
 
   return {
     ok: result.ok,
@@ -199,7 +235,9 @@ async function startInteractionRecording(tabId) {
     return { ok: false, error: "No active capture tab is available." }
   }
 
-  const result = await sendToTab(resolvedTabId, { type: "START_INTERACTION_RECORDING" })
+  const tabState = await getTabState(resolvedTabId)
+  const targetFrameId = hasFrameId(tabState?.captureFrameId) ? tabState.captureFrameId : 0
+  const result = await sendToTab(resolvedTabId, { type: "START_INTERACTION_RECORDING" }, targetFrameId)
   if (!result.ok || result.response?.ok === false) {
     return {
       ok: false,
@@ -217,7 +255,9 @@ async function stopInteractionRecording(tabId) {
     return { ok: false, error: "No active capture tab is available." }
   }
 
-  const result = await sendToTab(resolvedTabId, { type: "STOP_INTERACTION_RECORDING" })
+  const tabState = await getTabState(resolvedTabId)
+  const targetFrameId = hasFrameId(tabState?.captureFrameId) ? tabState.captureFrameId : 0
+  const result = await sendToTab(resolvedTabId, { type: "STOP_INTERACTION_RECORDING" }, targetFrameId)
   await setTabState(resolvedTabId, { interactionRecording: false })
 
   if (!result.ok || result.response?.ok === false) {
@@ -313,10 +353,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return
         }
 
-        await setCapture(tabId, message.payload)
+        await setCapture(tabId, message.payload, sender?.frameId)
         await ensureSidePanel(tabId)
         chrome.runtime.sendMessage({ type: "CAPTURE_UPDATED", tabId }).catch(() => {})
-        sendResponse({ ok: true, tabId })
+        sendResponse({ ok: true, tabId, frameId: sender?.frameId ?? 0 })
         return
       }
 

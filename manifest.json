@@ -9,7 +9,7 @@
     "48": "extension/icons/icon48.png",
     "128": "extension/icons/icon128.png"
   },
-  "permissions": ["storage", "sidePanel"],
+  "permissions": ["storage", "sidePanel", "webNavigation"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "extension/background.js"
@@ -38,7 +38,9 @@
     {
       "matches": ["http://*/*", "https://*/*"],
       "js": ["extension/content-script.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true
     }
   ]
 }

@@ -522,7 +522,7 @@
   }
 
   function collectStyles(element, parentStyles) {
-    const computedStyle = window.getComputedStyle(element)
+    const computedStyle = getElementWindow(element).getComputedStyle(element)
     const defaultStyles = getDefaultStylesForTag(element.tagName.toLowerCase())
     const styles = {}
 
@@ -539,7 +539,8 @@
   }
 
   function collectPseudoStyles(element, pseudoName) {
-    const computedStyle = window.getComputedStyle(element, pseudoName)
+    const elementWindow = getElementWindow(element)
+    const computedStyle = elementWindow.getComputedStyle(element, pseudoName)
     if (!computedStyle) {
       return null
     }
@@ -550,7 +551,7 @@
     }
 
     const defaultStyles = getDefaultStylesForTag("span")
-    const elementStyles = window.getComputedStyle(element)
+    const elementStyles = elementWindow.getComputedStyle(element)
     const pseudoStyles = { content }
 
     for (const property of STYLE_PROPERTIES) {
@@ -687,13 +688,31 @@
     return value.replace(/\s+/g, " ").trim()
   }
 
+  function getElementWindow(element) {
+    return element?.ownerDocument?.defaultView || window
+  }
+
+  function offsetMetrics(metrics, offset) {
+    if (!metrics) {
+      return null
+    }
+
+    return {
+      x: metrics.x + (offset?.x || 0),
+      y: metrics.y + (offset?.y || 0),
+      width: metrics.width,
+      height: metrics.height
+    }
+  }
+
   function collectTextMetrics(textNode) {
     if (!(textNode instanceof Text)) {
       return null
     }
 
     try {
-      const range = document.createRange()
+      const ownerDocument = textNode.ownerDocument || document
+      const range = ownerDocument.createRange()
       range.selectNodeContents(textNode)
       const rect = range.getBoundingClientRect()
 
@@ -760,12 +779,38 @@
     return clone.innerHTML
   }
 
-  function walkNode(element, context, depth, parentStyles, path) {
+  function getIframeCaptureRoot(iframeElement) {
+    if (!(iframeElement instanceof HTMLIFrameElement)) {
+      return null
+    }
+
+    try {
+      const frameDocument = iframeElement.contentDocument
+      if (!frameDocument) {
+        return null
+      }
+
+      return frameDocument.body || frameDocument.documentElement || null
+    } catch {
+      return null
+    }
+  }
+
+  function getIframeOffset(iframeElement, parentOffset) {
+    const rect = iframeElement.getBoundingClientRect()
+    return {
+      x: (parentOffset?.x || 0) + rect.x,
+      y: (parentOffset?.y || 0) + rect.y
+    }
+  }
+
+  function walkNode(element, context, depth, parentStyles, path, viewportOffset = { x: 0, y: 0 }) {
     if (!(element instanceof Element) || !isInspectable(element)) {
       return null
     }
 
-    const computedStyle = window.getComputedStyle(element)
+    const elementWindow = getElementWindow(element)
+    const computedStyle = elementWindow.getComputedStyle(element)
     if (shouldSkipCapturedElement(element, computedStyle)) {
       return null
     }
@@ -789,12 +834,12 @@
         before: collectPseudoStyles(element, "::before"),
         after: collectPseudoStyles(element, "::after")
       },
-      metrics: {
+      metrics: offsetMetrics({
         x: rect.x,
         y: rect.y,
         width: rect.width,
         height: rect.height
-      },
+      }, viewportOffset),
       children: []
     }
 
@@ -816,6 +861,31 @@
       return node
     }
 
+    if (node.tag === "iframe") {
+      const frameRoot = getIframeCaptureRoot(element)
+      if (!frameRoot) {
+        context.warnings.push(`Could not inspect iframe ${describeElement(element)} due to cross-origin restrictions.`)
+        node.attributes["data-replicode-iframe-access"] = "restricted"
+        return node
+      }
+
+      node.attributes["data-replicode-iframe-access"] = "same-origin"
+      const frameChild = walkNode(
+        frameRoot,
+        context,
+        depth + 1,
+        null,
+        `${path}.0`,
+        getIframeOffset(element, viewportOffset)
+      )
+
+      if (frameChild) {
+        node.children.push(frameChild)
+      }
+
+      return node
+    }
+
     let childIndex = 0
     for (const child of element.childNodes) {
       if (context.count >= MAX_CAPTURE_NODES) {
@@ -829,7 +899,7 @@
           node.children.push({
             type: "text",
             text,
-            metrics: collectTextMetrics(child)
+            metrics: offsetMetrics(collectTextMetrics(child), viewportOffset)
           })
         }
         continue
@@ -839,7 +909,7 @@
         continue
       }
 
-      const childNode = walkNode(child, context, depth + 1, styles, `${path}.${childIndex}`)
+      const childNode = walkNode(child, context, depth + 1, styles, `${path}.${childIndex}`, viewportOffset)
       childIndex += 1
       if (childNode) {
         node.children.push(childNode)
@@ -1495,6 +1565,7 @@
       count: 0,
       truncated: false,
       options: resolvedOptions,
+      warnings: [],
       assets: {
         fonts: new Set(),
         images: new Set(),
@@ -1559,7 +1630,7 @@
         images: [...context.assets.images],
         backgrounds: [...context.assets.backgrounds]
       },
-      warnings: [...new Set(warnings)]
+      warnings: [...new Set([...warnings, ...context.warnings])]
     }
   }
 
