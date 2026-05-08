@@ -222,12 +222,9 @@
         top: 14px;
         left: 50%;
         transform: translateX(-50%);
-        width: min(580px, calc(100vw - 32px));
-        padding: 8px 10px;
-        border-radius: 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
+        width: min(620px, calc(100vw - 32px));
+        padding: 6px 8px 6px 10px;
+        border-radius: 12px;
         background:
           radial-gradient(circle at top right, rgba(239, 76, 212, 0.16), transparent 34%),
           rgba(12, 14, 22, 0.94);
@@ -239,42 +236,39 @@
         backdrop-filter: blur(18px);
       }
 
-      #${OVERLAY_ROOT_ID} .ui-extractor-hud-bar,
-      #${OVERLAY_ROOT_ID} .ui-extractor-hud-actions,
-      #${OVERLAY_ROOT_ID} .ui-extractor-hud-footer {
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-row {
         display: flex;
         align-items: center;
-        gap: 8px;
-      }
-
-      #${OVERLAY_ROOT_ID} .ui-extractor-hud-bar {
-        justify-content: flex-start;
+        gap: 10px;
         cursor: grab;
         user-select: none;
         touch-action: none;
       }
 
-      #${OVERLAY_ROOT_ID} .ui-extractor-hud-actions {
-        justify-content: space-between;
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud--dragging .ui-extractor-hud-row {
+        cursor: grabbing;
       }
 
-      #${OVERLAY_ROOT_ID} .ui-extractor-hud-footer {
-        justify-content: flex-start;
-      }
-
-      #${OVERLAY_ROOT_ID} .ui-extractor-hud-bar::before {
-        content: "";
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-grip {
+        flex: 0 0 auto;
         display: inline-block;
         width: 7px;
-        height: 12px;
-        margin-right: 2px;
+        height: 14px;
         background-image: radial-gradient(circle, rgba(255, 255, 255, 0.5) 1px, transparent 1.4px);
         background-size: 3.5px 3.5px;
-        opacity: 0.55;
+        opacity: 0.5;
       }
 
-      #${OVERLAY_ROOT_ID} .ui-extractor-hud--dragging .ui-extractor-hud-bar {
-        cursor: grabbing;
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-segmented,
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-cta,
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-segmented-btn,
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-button,
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-close {
+        cursor: pointer;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-cta {
+        margin-left: auto;
       }
 
       #${OVERLAY_ROOT_ID} .ui-extractor-hud--dragged {
@@ -356,7 +350,6 @@
         justify-content: center;
         width: 22px;
         height: 22px;
-        margin-left: auto;
         padding: 0;
         border: none;
         border-radius: 6px;
@@ -492,14 +485,12 @@
     hudPanel = document.createElement("div")
     hudPanel.className = "ui-extractor-hud"
     hudPanel.innerHTML = `
-      <div class="ui-extractor-hud-bar" data-role="drag-handle" title="Drag to move">
+      <div class="ui-extractor-hud-row" data-role="drag-handle" title="Drag to move">
+        <span class="ui-extractor-hud-grip" aria-hidden="true"></span>
         <div class="ui-extractor-hud-brand">
           <span class="ui-extractor-hud-dot"></span>
           <span class="ui-extractor-hud-title">Replicode</span>
         </div>
-        <button type="button" class="ui-extractor-hud-close" data-action="exit" aria-label="Close" title="Close (Esc)">×</button>
-      </div>
-      <div class="ui-extractor-hud-actions">
         <div class="ui-extractor-hud-segmented" role="group" aria-label="Adjust capture scope">
           <button type="button" class="ui-extractor-hud-segmented-btn" data-action="narrow" title="Narrow scope (])">Child <kbd>]</kbd></button>
           <button type="button" class="ui-extractor-hud-segmented-btn" data-action="widen" title="Widen scope ([)">Parent <kbd>[</kbd></button>
@@ -520,9 +511,7 @@
             <kbd data-role="capture-kbd">↵</kbd>
           </button>
         </div>
-      </div>
-      <div class="ui-extractor-hud-footer">
-        <span class="ui-extractor-status" data-role="status">Hover any component, then click to capture.</span>
+        <button type="button" class="ui-extractor-hud-close" data-action="exit" aria-label="Close" title="Close (Esc)">×</button>
       </div>
     `
 
