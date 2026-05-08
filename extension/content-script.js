@@ -165,6 +165,7 @@
   let captureButton = null
   let exitButton = null
   let copyFigmaButton = null
+  let copyCodeButton = null
   let dragHandle = null
   let dragState = null
   let hudPosition = null
@@ -499,7 +500,14 @@
           <button type="button" class="ui-extractor-hud-segmented-btn" data-action="widen" title="Widen scope ([)">Parent <kbd>[</kbd></button>
         </div>
         <div class="ui-extractor-hud-cta">
-          <button type="button" class="ui-extractor-hud-button" data-action="copy-figma" title="Copy Figma payload" disabled>
+          <button type="button" class="ui-extractor-hud-button" data-action="copy-code" title="Copy HTML + CSS for vibe-coding tools" disabled>
+            <svg class="ui-extractor-hud-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            <span data-role="code-label">Code</span>
+          </button>
+          <button type="button" class="ui-extractor-hud-button" data-action="copy-figma" title="Copy Figma plugin payload (JSON)" disabled>
             <svg class="ui-extractor-hud-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -524,6 +532,7 @@
     captureButton = hudPanel.querySelector('[data-action="capture"]')
     exitButton = hudPanel.querySelector('[data-action="exit"]')
     copyFigmaButton = hudPanel.querySelector('[data-action="copy-figma"]')
+    copyCodeButton = hudPanel.querySelector('[data-action="copy-code"]')
     dragHandle = hudPanel.querySelector('[data-role="drag-handle"]')
 
     dragHandle.addEventListener("pointerdown", onDragStart)
@@ -543,6 +552,7 @@
     })
     exitButton.addEventListener("click", () => disableCaptureMode())
     copyFigmaButton.addEventListener("click", () => copyFigmaPayloadFromHud())
+    copyCodeButton.addEventListener("click", () => copyCodeFromHud())
 
     overlayRoot.appendChild(highlightBox)
     overlayRoot.appendChild(labelBox)
@@ -565,6 +575,7 @@
     captureButton = null
     exitButton = null
     copyFigmaButton = null
+    copyCodeButton = null
     dragHandle = null
     dragState = null
   }
@@ -739,17 +750,20 @@
   function noteCaptureCompleted(payload) {
     const metadata = payload?.metadata || {}
     const rootLabel = metadata.rootLabel || metadata.rootTag || "component"
-    const wasFigmaDisabled = !!copyFigmaButton?.disabled
+    const wasDisabled = !!(copyFigmaButton?.disabled || copyCodeButton?.disabled)
 
     if (copyFigmaButton) {
       copyFigmaButton.disabled = false
-      if (wasFigmaDisabled) {
-        pulseFigmaAttention()
-      }
+    }
+    if (copyCodeButton) {
+      copyCodeButton.disabled = false
+    }
+    if (wasDisabled) {
+      pulseFigmaAttention()
     }
 
     flashCaptureSuccess()
-    updateStatus(`✓ Captured ${rootLabel}${metadata.autoCopied ? " · HTML + CSS copied" : ""}`)
+    updateStatus(`✓ Captured ${rootLabel} · pick Code or Figma to copy`)
   }
 
   function enableCaptureMode() {
@@ -765,9 +779,12 @@
     if (copyFigmaButton) {
       copyFigmaButton.disabled = !lastCapturePayload
     }
+    if (copyCodeButton) {
+      copyCodeButton.disabled = !lastCapturePayload
+    }
     updateStatus(
       lastCapturePayload
-        ? "Hover to capture again, or copy the Figma payload."
+        ? "Hover to capture again, or pick Code / Figma to copy."
         : "Hover any component, then click to capture."
     )
     window.addEventListener("keydown", onOverlayKeyDown, true)
@@ -837,6 +854,60 @@
       }, 1600)
     } catch (error) {
       updateStatus(`Could not copy the Figma payload: ${error?.message || error}`)
+      restore()
+    }
+  }
+
+  // Copy HTML + CSS for vibe-coding tools (Lovable, v0, Cursor, etc.).
+  // Pulls the latest captured payload from the background so it works
+  // even if the page reloaded and the in-content lastCapturePayload is
+  // stale. Uses the same generateClipboardExport that powered the old
+  // auto-copy path.
+  async function copyCodeFromHud() {
+    if (!copyCodeButton) {
+      return
+    }
+
+    const labelEl = copyCodeButton.querySelector("span") || copyCodeButton
+    const previousLabel = labelEl.textContent
+    copyCodeButton.disabled = true
+    labelEl.textContent = "Copying…"
+
+    const restore = () => {
+      labelEl.textContent = previousLabel
+      copyCodeButton.disabled = false
+    }
+
+    try {
+      const state = await chrome.runtime.sendMessage({ type: "GET_EXTENSION_STATE" })
+      const capture = state?.ok ? state.capture : null
+      if (!capture?.tree) {
+        updateStatus("No capture is available yet. Capture a component first.")
+        restore()
+        return
+      }
+
+      const exportText = generateClipboardExport(capture)
+      if (!exportText) {
+        updateStatus("Could not generate code for this capture.")
+        restore()
+        return
+      }
+
+      const copied = await copyTextToClipboard(exportText)
+      labelEl.textContent = copied ? "Copied" : "Failed"
+      updateStatus(
+        copied
+          ? "HTML + CSS copied. Paste into your vibe-coding tool of choice."
+          : "Copy failed. Use the side panel to copy from there."
+      )
+      window.setTimeout(() => {
+        if (copyCodeButton) {
+          restore()
+        }
+      }, 1600)
+    } catch (error) {
+      updateStatus(`Could not copy the code: ${error?.message || error}`)
       restore()
     }
   }
@@ -1562,6 +1633,33 @@
     }
 
     return "rgb(255, 255, 255)"
+  }
+
+  // Walk :root + body and collect every CSS custom property the page
+  // defines. The plugin resolves var(--name) references in SVG markup
+  // and other captured values against this map so design-system tokens
+  // (e.g. --geist-background, --ds-gray-1000) survive the round-trip
+  // instead of leaking through unresolved.
+  function collectCssVariables() {
+    const map = {}
+    const sources = [document.documentElement, document.body]
+    for (const element of sources) {
+      if (!(element instanceof Element)) continue
+      const computed = window.getComputedStyle(element)
+      for (let i = 0; i < computed.length; i += 1) {
+        const prop = computed[i]
+        if (!prop || !prop.startsWith("--")) continue
+        const value = computed.getPropertyValue(prop)
+        if (value == null) continue
+        const trimmed = String(value).trim()
+        if (!trimmed) continue
+        // First defined value wins (documentElement preferred over body).
+        if (map[prop] === undefined) {
+          map[prop] = trimmed
+        }
+      }
+    }
+    return map
   }
 
   function sanitizeSvgCloneTree(node) {
@@ -2429,7 +2527,8 @@
       ancestorChain,
       recommendedAncestorLevel: recommended?.level ?? 0,
       options: resolvedOptions,
-      nodeCount: context.count
+      nodeCount: context.count,
+      cssVariables: collectCssVariables()
     }
 
     if (Object.keys(recordedStateMap).length) {
@@ -2477,15 +2576,13 @@
       return null
     }
 
-    const clipboardExport = generateClipboardExport(payload)
-    const copied = await copyTextToClipboard(clipboardExport)
-    payload.metadata.autoCopied = copied
-    if (!copied) {
-      payload.warnings.push("Automatic clipboard copy failed. Use the side panel Copy code button.")
-    }
+    // No more auto-copy. The user picks Code or Figma explicitly from
+    // the floating bar — that way the captured payload doesn't quietly
+    // overwrite their clipboard, and the user gets the format they
+    // actually want for the workflow they're in.
+    payload.metadata.autoCopied = false
 
     lastCapturePayload = payload
-    updateStatus(copied ? "Captured selection and copied HTML + CSS. Review it in the side panel." : "Captured selection. Review it in the side panel.")
     await chrome.runtime.sendMessage({ type: "CAPTURE_RESULT", payload })
     return payload
   }
