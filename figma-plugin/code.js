@@ -494,6 +494,32 @@ function getLayoutDirection(node) {
   return String(styles["flex-direction"] || "row").startsWith("column") ? "VERTICAL" : "HORIZONTAL"
 }
 
+// Inspect children's geometry to guess whether they form a clean vertical or
+// horizontal stack. Used when the container isn't display:flex but its
+// children are visually stacked (e.g. block-level <h1>+<p>+<button>).
+function inferLayoutDirection(node) {
+  const children = getRenderableChildren(node)
+  if (children.length < 2) {
+    return null
+  }
+
+  const parentMetrics = getNodeMetrics(node)
+  const verticalLinear = childrenAreLinear(children, "VERTICAL", parentMetrics)
+  const horizontalLinear = childrenAreLinear(children, "HORIZONTAL", parentMetrics)
+
+  if (verticalLinear && !horizontalLinear) return "VERTICAL"
+  if (horizontalLinear && !verticalLinear) return "HORIZONTAL"
+  if (verticalLinear && horizontalLinear) {
+    // Both pass — pick the axis with greater child spread.
+    const spans = children.map(getNodeMetrics).filter(Boolean)
+    if (!spans.length) return null
+    const ySpread = Math.max.apply(null, spans.map((m) => m.y + m.height)) - Math.min.apply(null, spans.map((m) => m.y))
+    const xSpread = Math.max.apply(null, spans.map((m) => m.x + m.width)) - Math.min.apply(null, spans.map((m) => m.x))
+    return ySpread > xSpread ? "VERTICAL" : "HORIZONTAL"
+  }
+  return null
+}
+
 function childrenAreLinear(children, direction, parentMetrics) {
   if (!children.length) {
     return false
@@ -532,27 +558,31 @@ function canUseAutoLayout(node, options) {
   }
 
   const styles = node.styles || {}
-  const display = String(styles.display || "")
-  if (!display.includes("flex")) {
-    return false
-  }
-
-  if (String(styles["flex-wrap"] || "nowrap").trim() !== "nowrap") {
-    return false
-  }
-
   const children = getRenderableChildren(node)
   if (children.length < 1) {
     return false
   }
 
+  // Skip if any child is absolutely positioned — those need to escape layout.
   for (const child of children) {
     if (child.type === "element" && isAbsolutelyPositioned(child)) {
       return false
     }
   }
 
-  return childrenAreLinear(children, getLayoutDirection(node), getNodeMetrics(node))
+  const display = String(styles.display || "")
+  const isFlex = display.includes("flex")
+  const wrap = String(styles["flex-wrap"] || "nowrap").trim()
+
+  if (isFlex && wrap === "nowrap") {
+    return childrenAreLinear(children, getLayoutDirection(node), getNodeMetrics(node))
+  }
+
+  // For non-flex containers (block divs, paragraphs with inline runs, etc.),
+  // accept auto-layout when children visibly form a linear stack — this is
+  // what the original layout engine produced anyway, just expressed via
+  // block/inline flow rather than flex.
+  return inferLayoutDirection(node) !== null
 }
 
 function mapPrimaryAxisAlignment(value) {
@@ -935,13 +965,19 @@ function applyAutoLayout(frame, captureNode, options) {
     return false
   }
 
-  frame.layoutMode = getLayoutDirection(captureNode)
+  const display = String(styles.display || "")
+  const isFlex = display.includes("flex")
+  // When the source isn't flex, geometry is the only signal we have for
+  // direction — fall back to the inferred axis.
+  const direction = isFlex ? getLayoutDirection(captureNode) : (inferLayoutDirection(captureNode) || "VERTICAL")
+
+  frame.layoutMode = direction
   frame.primaryAxisSizingMode = "FIXED"
   frame.counterAxisSizingMode = "FIXED"
   frame.primaryAxisAlignItems = mapPrimaryAxisAlignment(styles["justify-content"])
   frame.counterAxisAlignItems = mapCounterAxisAlignment(styles["align-items"])
 
-  const gap = frame.layoutMode === "VERTICAL"
+  const gap = direction === "VERTICAL"
     ? parsePx(styles.gap || styles["row-gap"], 8)
     : parsePx(styles.gap || styles["column-gap"], 8)
   frame.itemSpacing = Math.max(0, gap)
@@ -956,10 +992,12 @@ function setAbsolutePlacement(sceneNode, childMetrics, parentMetrics) {
     return
   }
 
+  // Use parent metrics as the origin; allow negative offsets — clamping to 0
+  // collapses every offset child onto the same point and hides the real bug.
   const parentX = parentMetrics ? parentMetrics.x : 0
   const parentY = parentMetrics ? parentMetrics.y : 0
-  sceneNode.x = Math.max(0, Math.round(childMetrics.x - parentX))
-  sceneNode.y = Math.max(0, Math.round(childMetrics.y - parentY))
+  sceneNode.x = Math.round(childMetrics.x - parentX)
+  sceneNode.y = Math.round(childMetrics.y - parentY)
 }
 
 function setAutoLayoutChildSizing(childNode, child, parentNode, parentMetrics, layoutMode) {
@@ -1158,7 +1196,9 @@ async function buildNode(node, inheritedStyles, options, isRoot) {
   await applyVisualStyles(frame, node, options, "")
 
   const usesAutoLayout = applyAutoLayout(frame, node, options)
-  const layoutMode = usesAutoLayout ? getLayoutDirection(node) : null
+  // Use whatever layoutMode was actually applied (frame.layoutMode reflects
+  // the inferred direction when the source isn't display:flex).
+  const layoutMode = usesAutoLayout ? frame.layoutMode : null
   const parentMetrics = node.metrics || { x: 0, y: 0 }
   const padding = parseBoxValues(node.styles || {}, "padding")
   let fallbackCursorY = padding.top
