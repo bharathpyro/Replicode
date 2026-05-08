@@ -36,7 +36,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["figma-export.js", "content-script.js"],
+      "js": ["figma-export.js", "figma-clipboard-writer.js", "content-script.js"],
       "run_at": "document_idle",
       "all_frames": true,
       "match_about_blank": true
