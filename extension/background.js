@@ -345,8 +345,13 @@ if (chrome.tabs?.onUpdated?.addListener) {
 
 async function toggleCaptureForCurrentTab() {
   const tabId = await getCurrentTabId()
-  const currentState = await getTabState(tabId)
-  if (currentState?.captureMode) {
+  // Probe the content script to make sure the stored captureMode flag
+  // reflects what's actually in the page. Without this, a stale flag
+  // (e.g. the page was reloaded while capture was on, or the service
+  // worker restarted) makes the toggle try to stop a non-existent
+  // overlay — the user clicks the icon and nothing visible happens.
+  const verifiedState = await syncCaptureModeState(tabId, await getTabState(tabId))
+  if (verifiedState?.captureMode) {
     return stopCapture(tabId)
   }
 
