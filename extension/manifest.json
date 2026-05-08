@@ -15,8 +15,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Replicode - Code extractor",
-    "default_popup": "popup.html",
+    "default_title": "Replicode — toggle capture",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png"
@@ -37,7 +36,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content-script.js"],
+      "js": ["figma-export.js", "content-script.js"],
       "run_at": "document_idle",
       "all_frames": true,
       "match_about_blank": true

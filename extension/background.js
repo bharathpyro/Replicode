@@ -99,6 +99,42 @@ async function clearCapture(tabId) {
   })
 }
 
+async function resetTransientCaptureState(tabId) {
+  if (!tabId) {
+    return
+  }
+
+  const currentState = await getTabState(tabId)
+  if (!currentState?.captureMode && !currentState?.interactionRecording) {
+    return
+  }
+
+  await setTabState(tabId, {
+    captureMode: false,
+    interactionRecording: false,
+    captureFrameId: 0
+  })
+}
+
+async function syncCaptureModeState(tabId, tabState) {
+  const currentState = tabState || (await getTabState(tabId))
+  if (!tabId || !currentState?.captureMode) {
+    return currentState || null
+  }
+
+  const targetFrameId = hasFrameId(currentState.captureFrameId) ? currentState.captureFrameId : null
+  const probe = hasFrameId(targetFrameId)
+    ? await sendToTab(tabId, { type: "GET_CAPTURE_MODE" }, targetFrameId)
+    : await sendToAllFrames(tabId, { type: "GET_CAPTURE_MODE" })
+
+  if (probe.ok && probe.response?.captureMode === true) {
+    return currentState
+  }
+
+  await resetTransientCaptureState(tabId)
+  return getTabState(tabId)
+}
+
 async function getFrameIds(tabId) {
   if (!chrome.webNavigation?.getAllFrames) {
     return [0]
@@ -276,7 +312,7 @@ async function stopInteractionRecording(tabId) {
 
 async function getExtensionState() {
   const tabId = await getCurrentTabId()
-  const tabState = await getTabState(tabId)
+  const tabState = await syncCaptureModeState(tabId, await getTabState(tabId))
   const capture = await getCapture(tabId)
 
   return {
@@ -287,20 +323,49 @@ async function getExtensionState() {
   }
 }
 
+if (chrome.webNavigation?.onCommitted?.addListener) {
+  chrome.webNavigation.onCommitted.addListener((details) => {
+    if (details.frameId !== 0) {
+      return
+    }
+
+    resetTransientCaptureState(details.tabId).catch(() => {})
+  })
+}
+
+if (chrome.tabs?.onUpdated?.addListener) {
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status !== "loading") {
+      return
+    }
+
+    resetTransientCaptureState(tabId).catch(() => {})
+  })
+}
+
+async function toggleCaptureForCurrentTab() {
+  const tabId = await getCurrentTabId()
+  const currentState = await getTabState(tabId)
+  if (currentState?.captureMode) {
+    return stopCapture(tabId)
+  }
+
+  return startCapture()
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "toggle-capture") {
     return
   }
 
-  const tabId = await getCurrentTabId()
-  const currentState = await getTabState(tabId)
-  if (currentState?.captureMode) {
-    await stopCapture(tabId)
-    return
-  }
-
-  await startCapture()
+  await toggleCaptureForCurrentTab()
 })
+
+if (chrome.action?.onClicked?.addListener) {
+  chrome.action.onClicked.addListener(async () => {
+    await toggleCaptureForCurrentTab()
+  })
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   ;(async () => {

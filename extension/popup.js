@@ -1,89 +1,106 @@
-const statusText = document.getElementById("statusText")
-const copyForFigmaButton = document.getElementById("copyForFigma")
+const runtime = globalThis.chrome?.runtime || null
+const storage = globalThis.chrome?.storage || null
+const statusBadge = document.getElementById("statusBadge")
+const captureMeta = document.getElementById("captureMeta")
+const startCaptureButton = document.getElementById("startCapture")
+const stopCaptureButton = document.getElementById("stopCapture")
+const openReviewButton = document.getElementById("openReview")
 
-async function sendMessage(message) {
-  return chrome.runtime.sendMessage(message)
+function setStatus(label, message, tone = "idle") {
+  if (statusBadge) {
+    statusBadge.textContent = label
+    statusBadge.className = `status-badge status-badge--${tone}`
+  }
+
+  if (captureMeta) {
+    captureMeta.textContent = message
+  }
 }
 
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    const textarea = document.createElement("textarea")
-    textarea.value = text
-    textarea.setAttribute("readonly", "readonly")
-    textarea.style.cssText = "position:fixed;left:-99999px;top:-99999px;opacity:0;"
-    document.body.appendChild(textarea)
-    textarea.select()
-    textarea.setSelectionRange(0, textarea.value.length)
-    const copied = document.execCommand("copy")
-    document.body.removeChild(textarea)
-    return copied
+function applyControlState({ captureMode = false, previewOnly = false } = {}) {
+  startCaptureButton.disabled = previewOnly || captureMode
+  stopCaptureButton.disabled = previewOnly || !captureMode
+}
+
+async function sendMessage(message) {
+  if (!runtime?.sendMessage) {
+    return { ok: false, error: "Extension runtime unavailable." }
   }
+
+  try {
+    return await runtime.sendMessage(message)
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error) }
+  }
+}
+
+function applyPreviewState() {
+  setStatus("Preview", "Load the unpacked extension in Chrome to use live capture.", "preview")
+  applyControlState({ previewOnly: true })
 }
 
 async function refreshStatus() {
+  if (!runtime?.sendMessage) {
+    applyPreviewState()
+    return
+  }
+
   const state = await sendMessage({ type: "GET_EXTENSION_STATE" })
   if (!state?.ok) {
-    statusText.textContent = "Unable to read extension state."
-    copyForFigmaButton.disabled = true
+    setStatus("Error", state?.error || "Couldn't read the extension state.", "preview")
+    applyControlState({ previewOnly: false, captureMode: false })
     return
   }
 
-  copyForFigmaButton.disabled = !state.capture?.tree
+  const captureMode = Boolean(state.tabState?.captureMode)
+  const captureLabel = state.capture?.metadata?.rootLabel || null
+  applyControlState({ captureMode })
 
-  if (state.tabState?.captureMode) {
-    statusText.textContent = "Capture mode is active on the current tab."
+  if (captureMode) {
+    setStatus("Live", "Use the floating bar on the page to capture a component.", "live")
     return
   }
 
-  if (state.capture?.metadata?.rootLabel) {
-    statusText.textContent = `Last capture: ${state.capture.metadata.rootLabel}`
+  if (captureLabel) {
+    setStatus("Ready", `Last capture: ${captureLabel}`, "ready")
     return
   }
 
-  statusText.textContent = "Ready."
+  setStatus("Idle", "Open any page, then capture the component you want to export.", "idle")
 }
 
-document.getElementById("startCapture").addEventListener("click", async () => {
-  statusText.textContent = "Starting capture mode..."
+startCaptureButton.addEventListener("click", async () => {
+  setStatus("Live", "Starting capture mode…", "live")
   const result = await sendMessage({ type: "START_CAPTURE" })
-  statusText.textContent = result?.ok
-    ? "Capture mode is live. Hover the page and click a component."
-    : result?.error || "Could not start capture mode."
+  if (!result?.ok) {
+    setStatus("Error", result?.error || "Could not start capture mode.", "preview")
+  }
+  await refreshStatus()
 })
 
-document.getElementById("openReview").addEventListener("click", async () => {
-  const result = await sendMessage({ type: "OPEN_REVIEW" })
-  statusText.textContent = result?.ok
-    ? "Review panel opened."
-    : result?.warning || result?.error || "Could not open the review panel."
-})
-
-document.getElementById("stopCapture").addEventListener("click", async () => {
+stopCaptureButton.addEventListener("click", async () => {
   const result = await sendMessage({ type: "STOP_CAPTURE" })
-  statusText.textContent = result?.ok ? "Capture mode stopped." : result?.error || "Nothing to stop."
+  if (!result?.ok) {
+    setStatus("Error", result?.error || "Nothing to stop.", "preview")
+  }
+  await refreshStatus()
 })
 
-document.getElementById("copyForFigma").addEventListener("click", async () => {
-  const state = await sendMessage({ type: "GET_EXTENSION_STATE" })
-  if (!state?.ok || !state.capture?.tree) {
-    statusText.textContent = "Capture a component first, then copy the Figma payload."
-    copyForFigmaButton.disabled = true
-    return
+openReviewButton.addEventListener("click", async () => {
+  const result = await sendMessage({ type: "OPEN_REVIEW" })
+  if (!result?.ok) {
+    setStatus("Error", result?.warning || result?.error || "Could not open the review panel.", "preview")
   }
-
-  const payload = window.ReplicodeFigmaExport?.generateImportJson(state.capture)
-  if (!payload) {
-    statusText.textContent = "Could not prepare the Figma payload."
-    return
-  }
-
-  const copied = await copyText(payload)
-  statusText.textContent = copied
-    ? "Copied Figma payload. Paste it into the Replicode Figma plugin."
-    : "Copy failed. Open the review panel and copy the Figma output there."
 })
+
+if (storage?.onChanged?.addListener) {
+  storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local" && (changes.currentTabId || Object.keys(changes).some((key) => key.startsWith("capture:") || key.startsWith("state:")))) {
+      refreshStatus()
+    }
+  })
+}
+
+window.addEventListener("focus", refreshStatus)
 
 refreshStatus()

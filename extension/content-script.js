@@ -156,6 +156,15 @@
   let highlightBox = null
   let labelBox = null
   let statusPill = null
+  let hudPanel = null
+  let scopeDownButton = null
+  let scopeUpButton = null
+  let captureButton = null
+  let exitButton = null
+  let copyFigmaButton = null
+  let dragHandle = null
+  let dragState = null
+  let hudPosition = null
   let defaultStylesFrame = null
   let defaultStyleCache = new Map()
   let lastCaptureOptions = { ancestorLevel: 0, maxDepth: null }
@@ -163,6 +172,12 @@
   let recordedStateMap = {}
   let recordedEvents = []
   let interactionRecorder = null
+  let hoverState = null
+  let ancestorAdjustment = 0
+
+  function clampNumber(value, min, max) {
+    return Math.min(Math.max(value, min), max)
+  }
 
   function ensureOverlay() {
     if (overlayRoot) {
@@ -181,35 +196,286 @@
 
       #${OVERLAY_ROOT_ID} .ui-extractor-highlight {
         position: fixed;
-        border: 2px solid #2563eb;
-        background: rgba(37, 99, 235, 0.12);
-        box-shadow: 0 0 0 99999px rgba(15, 23, 42, 0.08);
-        border-radius: 8px;
+        border: 1.5px solid #ef4cd4;
+        background: rgba(239, 76, 212, 0.08);
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.92), 0 12px 30px rgba(110, 24, 90, 0.18);
+        border-radius: 12px;
         pointer-events: none;
+        transition: top 90ms ease, left 90ms ease, width 90ms ease, height 90ms ease;
       }
 
       #${OVERLAY_ROOT_ID} .ui-extractor-label {
         position: fixed;
         padding: 6px 10px;
         border-radius: 999px;
-        background: #0f172a;
+        background: rgba(14, 16, 24, 0.94);
+        border: 1px solid rgba(255, 255, 255, 0.16);
         color: white;
         font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
         white-space: nowrap;
         pointer-events: none;
+        box-shadow: 0 10px 26px rgba(6, 8, 14, 0.24);
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud {
+        position: fixed;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(580px, calc(100vw - 32px));
+        padding: 8px 10px;
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        background:
+          radial-gradient(circle at top right, rgba(239, 76, 212, 0.16), transparent 34%),
+          rgba(12, 14, 22, 0.94);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        font: 12px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        pointer-events: auto;
+        box-shadow: 0 16px 32px rgba(6, 8, 14, 0.3);
+        backdrop-filter: blur(18px);
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-bar,
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-actions,
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-footer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-bar {
+        justify-content: flex-start;
+        cursor: grab;
+        user-select: none;
+        touch-action: none;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-actions {
+        justify-content: space-between;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-footer {
+        justify-content: flex-start;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-bar::before {
+        content: "";
+        display: inline-block;
+        width: 7px;
+        height: 12px;
+        margin-right: 2px;
+        background-image: radial-gradient(circle, rgba(255, 255, 255, 0.5) 1px, transparent 1.4px);
+        background-size: 3.5px 3.5px;
+        opacity: 0.55;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud--dragging .ui-extractor-hud-bar {
+        cursor: grabbing;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud--dragged {
+        left: var(--hud-left, 50%);
+        top: var(--hud-top, 14px);
+        transform: none;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #ef4cd4, #ff9472);
+        box-shadow: 0 0 0 3px rgba(239, 76, 212, 0.16);
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-title {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-segmented {
+        display: inline-flex;
+        align-items: stretch;
+        height: 28px;
+        flex: 0 0 auto;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.04);
+        overflow: hidden;
+        user-select: none;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-segmented-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 100%;
+        padding: 0 9px;
+        border: none;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.88);
+        font: inherit;
+        font-size: 11.5px;
+        font-weight: 600;
+        line-height: 1;
+        cursor: pointer;
+        transition: background-color 120ms ease;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-segmented-btn + .ui-extractor-hud-segmented-btn {
+        border-left: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-segmented-btn:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-segmented-btn:disabled {
+        opacity: 0.32;
+        cursor: not-allowed;
+      }
+
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        margin-left: auto;
+        padding: 0;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.55);
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        transition: background-color 120ms ease, color 120ms ease;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.95);
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex: 0 0 auto;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-icon {
+        flex: 0 0 auto;
+        display: inline-block;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 26px;
+        padding: 0 9px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.92);
+        font: inherit;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-button:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.18);
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-button:disabled {
+        opacity: 0.42;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-button--primary {
+        background: linear-gradient(135deg, #ef4cd4, #ff9472);
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 10px 22px rgba(239, 76, 212, 0.22);
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-button--success,
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-button--success:hover {
+        background: linear-gradient(135deg, #14a34a, #4cd07d);
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 10px 22px rgba(20, 163, 74, 0.28);
+        transform: none;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-icon[hidden],
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-button kbd[hidden] {
+        display: none;
+      }
+
+      @keyframes ui-extractor-hud-attention {
+        0% { box-shadow: 0 0 0 0 rgba(239, 76, 212, 0.45); }
+        70% { box-shadow: 0 0 0 6px rgba(239, 76, 212, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(239, 76, 212, 0); }
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-button--attention {
+        animation: ui-extractor-hud-attention 1s ease-out;
+      }
+
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-button kbd,
+      #${OVERLAY_ROOT_ID} .ui-extractor-hud-segmented-btn kbd {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.8);
+        font: 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
       }
 
       #${OVERLAY_ROOT_ID} .ui-extractor-status {
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        padding: 10px 12px;
-        border-radius: 14px;
-        background: rgba(15, 23, 42, 0.96);
-        color: white;
-        font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        pointer-events: none;
-        max-width: 280px;
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.78);
+      }
+
+      @media (max-width: 640px) {
+        #${OVERLAY_ROOT_ID} .ui-extractor-hud {
+          width: calc(100vw - 16px);
+          top: 8px;
+          padding: 7px 9px;
+        }
       }
     `
     document.documentElement.appendChild(style)
@@ -223,13 +489,72 @@
     labelBox = document.createElement("div")
     labelBox.className = "ui-extractor-label"
 
-    statusPill = document.createElement("div")
-    statusPill.className = "ui-extractor-status"
-    statusPill.textContent = "UI Extractor capture mode. Click a component to capture it. Press Esc to exit."
+    hudPanel = document.createElement("div")
+    hudPanel.className = "ui-extractor-hud"
+    hudPanel.innerHTML = `
+      <div class="ui-extractor-hud-bar" data-role="drag-handle" title="Drag to move">
+        <div class="ui-extractor-hud-brand">
+          <span class="ui-extractor-hud-dot"></span>
+          <span class="ui-extractor-hud-title">Replicode</span>
+        </div>
+        <button type="button" class="ui-extractor-hud-close" data-action="exit" aria-label="Close" title="Close (Esc)">×</button>
+      </div>
+      <div class="ui-extractor-hud-actions">
+        <div class="ui-extractor-hud-segmented" role="group" aria-label="Adjust capture scope">
+          <button type="button" class="ui-extractor-hud-segmented-btn" data-action="narrow" title="Narrow scope (])">Child <kbd>]</kbd></button>
+          <button type="button" class="ui-extractor-hud-segmented-btn" data-action="widen" title="Widen scope ([)">Parent <kbd>[</kbd></button>
+        </div>
+        <div class="ui-extractor-hud-cta">
+          <button type="button" class="ui-extractor-hud-button" data-action="copy-figma" title="Copy Figma payload" disabled>
+            <svg class="ui-extractor-hud-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span data-role="figma-label">Figma</span>
+          </button>
+          <button type="button" class="ui-extractor-hud-button ui-extractor-hud-button--primary" data-action="capture">
+            <svg class="ui-extractor-hud-icon ui-extractor-hud-icon--check" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span data-role="capture-label">Capture</span>
+            <kbd data-role="capture-kbd">↵</kbd>
+          </button>
+        </div>
+      </div>
+      <div class="ui-extractor-hud-footer">
+        <span class="ui-extractor-status" data-role="status">Hover any component, then click to capture.</span>
+      </div>
+    `
+
+    statusPill = hudPanel.querySelector('[data-role="status"]')
+    scopeDownButton = hudPanel.querySelector('[data-action="narrow"]')
+    scopeUpButton = hudPanel.querySelector('[data-action="widen"]')
+    captureButton = hudPanel.querySelector('[data-action="capture"]')
+    exitButton = hudPanel.querySelector('[data-action="exit"]')
+    copyFigmaButton = hudPanel.querySelector('[data-action="copy-figma"]')
+    dragHandle = hudPanel.querySelector('[data-role="drag-handle"]')
+
+    dragHandle.addEventListener("pointerdown", onDragStart)
+
+    hudPanel.addEventListener("mousedown", (event) => {
+      event.stopPropagation()
+    })
+
+    hudPanel.addEventListener("click", (event) => {
+      event.stopPropagation()
+    })
+
+    scopeDownButton.addEventListener("click", () => adjustHoveredScope(-1))
+    scopeUpButton.addEventListener("click", () => adjustHoveredScope(1))
+    captureButton.addEventListener("click", () => {
+      captureHoveredSelection()
+    })
+    exitButton.addEventListener("click", () => disableCaptureMode())
+    copyFigmaButton.addEventListener("click", () => copyFigmaPayloadFromHud())
 
     overlayRoot.appendChild(highlightBox)
     overlayRoot.appendChild(labelBox)
-    overlayRoot.appendChild(statusPill)
+    overlayRoot.appendChild(hudPanel)
     overlayRoot.style.display = "none"
     document.documentElement.appendChild(overlayRoot)
   }
@@ -242,15 +567,103 @@
     highlightBox = null
     labelBox = null
     statusPill = null
+    hudPanel = null
+    scopeDownButton = null
+    scopeUpButton = null
+    captureButton = null
+    exitButton = null
+    copyFigmaButton = null
+    dragHandle = null
+    dragState = null
   }
 
-  function enableCaptureMode() {
-    ensureOverlay()
-    captureMode = true
-    overlayRoot.style.display = "block"
-    hoveredElement = null
-    updateStatus("UI Extractor capture mode. Click a component to capture it. Press Esc to exit.")
+  function applyHudPosition() {
+    if (!hudPanel || !hudPosition) {
+      return
+    }
 
+    const margin = 8
+    const rect = hudPanel.getBoundingClientRect()
+    const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin)
+    const maxTop = Math.max(margin, window.innerHeight - rect.height - margin)
+    const left = clampNumber(hudPosition.left, margin, maxLeft)
+    const top = clampNumber(hudPosition.top, margin, maxTop)
+
+    hudPanel.classList.add("ui-extractor-hud--dragged")
+    hudPanel.style.setProperty("--hud-left", `${left}px`)
+    hudPanel.style.setProperty("--hud-top", `${top}px`)
+    hudPosition = { left, top }
+  }
+
+  function onDragStart(event) {
+    if (!hudPanel || event.button !== 0) {
+      return
+    }
+
+    // Don't start a drag from interactive widgets (buttons, kbd inside buttons, etc.)
+    if (event.target instanceof Element && event.target.closest("button, kbd")) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    const rect = hudPanel.getBoundingClientRect()
+    dragState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originLeft: rect.left,
+      originTop: rect.top,
+      width: rect.width,
+      height: rect.height
+    }
+
+    hudPanel.classList.add("ui-extractor-hud--dragging")
+    try {
+      dragHandle?.setPointerCapture?.(event.pointerId)
+    } catch {}
+    window.addEventListener("pointermove", onDragMove, true)
+    window.addEventListener("pointerup", onDragEnd, true)
+    window.addEventListener("pointercancel", onDragEnd, true)
+  }
+
+  function onDragMove(event) {
+    if (!dragState || event.pointerId !== dragState.pointerId) {
+      return
+    }
+
+    event.preventDefault()
+    const margin = 8
+    const dx = event.clientX - dragState.startX
+    const dy = event.clientY - dragState.startY
+    const maxLeft = Math.max(margin, window.innerWidth - dragState.width - margin)
+    const maxTop = Math.max(margin, window.innerHeight - dragState.height - margin)
+    const left = clampNumber(dragState.originLeft + dx, margin, maxLeft)
+    const top = clampNumber(dragState.originTop + dy, margin, maxTop)
+
+    hudPanel.classList.add("ui-extractor-hud--dragged")
+    hudPanel.style.setProperty("--hud-left", `${left}px`)
+    hudPanel.style.setProperty("--hud-top", `${top}px`)
+    hudPosition = { left, top }
+  }
+
+  function onDragEnd(event) {
+    if (!dragState || event.pointerId !== dragState.pointerId) {
+      return
+    }
+
+    try {
+      dragHandle?.releasePointerCapture?.(event.pointerId)
+    } catch {}
+    hudPanel?.classList.remove("ui-extractor-hud--dragging")
+    dragState = null
+    window.removeEventListener("pointermove", onDragMove, true)
+    window.removeEventListener("pointerup", onDragEnd, true)
+    window.removeEventListener("pointercancel", onDragEnd, true)
+  }
+
+  function attachSelectionListeners() {
     window.addEventListener("mousemove", onMouseMove, true)
     window.addEventListener("click", onClick, true)
     window.addEventListener("keydown", onKeyDown, true)
@@ -258,16 +671,182 @@
     window.addEventListener("resize", onViewportChange, true)
   }
 
-  function disableCaptureMode() {
-    captureMode = false
-    hoveredElement = null
-    overlayRoot && (overlayRoot.style.display = "none")
-
+  function detachSelectionListeners() {
     window.removeEventListener("mousemove", onMouseMove, true)
     window.removeEventListener("click", onClick, true)
     window.removeEventListener("keydown", onKeyDown, true)
     window.removeEventListener("scroll", onViewportChange, true)
     window.removeEventListener("resize", onViewportChange, true)
+  }
+
+  function onHudReposition() {
+    if (hudPosition) {
+      applyHudPosition()
+    }
+  }
+
+  let captureSuccessTimeout = null
+
+  function flashCaptureSuccess() {
+    if (!captureButton) {
+      return
+    }
+
+    const labelEl = captureButton.querySelector('[data-role="capture-label"]')
+    const kbdEl = captureButton.querySelector('[data-role="capture-kbd"]')
+    const checkEl = captureButton.querySelector(".ui-extractor-hud-icon--check")
+
+    if (captureSuccessTimeout) {
+      window.clearTimeout(captureSuccessTimeout)
+    }
+
+    captureButton.classList.add("ui-extractor-hud-button--success")
+    captureButton.classList.remove("ui-extractor-hud-button--primary")
+    if (kbdEl) {
+      kbdEl.hidden = true
+    }
+    if (checkEl) {
+      checkEl.hidden = false
+    }
+    if (labelEl) {
+      labelEl.textContent = "Captured"
+    }
+
+    captureSuccessTimeout = window.setTimeout(() => {
+      captureSuccessTimeout = null
+      if (!captureButton) {
+        return
+      }
+      captureButton.classList.remove("ui-extractor-hud-button--success")
+      captureButton.classList.add("ui-extractor-hud-button--primary")
+      if (kbdEl) {
+        kbdEl.hidden = false
+      }
+      if (checkEl) {
+        checkEl.hidden = true
+      }
+      if (labelEl) {
+        labelEl.textContent = "Capture"
+      }
+    }, 1400)
+  }
+
+  function pulseFigmaAttention() {
+    if (!copyFigmaButton) {
+      return
+    }
+    copyFigmaButton.classList.remove("ui-extractor-hud-button--attention")
+    // Force reflow so the animation can replay.
+    void copyFigmaButton.offsetWidth
+    copyFigmaButton.classList.add("ui-extractor-hud-button--attention")
+    window.setTimeout(() => {
+      copyFigmaButton?.classList.remove("ui-extractor-hud-button--attention")
+    }, 1100)
+  }
+
+  function noteCaptureCompleted(payload) {
+    const metadata = payload?.metadata || {}
+    const rootLabel = metadata.rootLabel || metadata.rootTag || "component"
+    const wasFigmaDisabled = !!copyFigmaButton?.disabled
+
+    if (copyFigmaButton) {
+      copyFigmaButton.disabled = false
+      if (wasFigmaDisabled) {
+        pulseFigmaAttention()
+      }
+    }
+
+    flashCaptureSuccess()
+    updateStatus(`✓ Captured ${rootLabel}${metadata.autoCopied ? " · HTML + CSS copied" : ""}`)
+  }
+
+  function enableCaptureMode() {
+    ensureOverlay()
+    captureMode = true
+    overlayRoot.style.display = "block"
+    hoveredElement = null
+    hoverState = null
+    ancestorAdjustment = 0
+    clearHighlight()
+    updateHud(null)
+    applyHudPosition()
+    if (copyFigmaButton) {
+      copyFigmaButton.disabled = !lastCapturePayload
+    }
+    updateStatus(
+      lastCapturePayload
+        ? "Hover to capture again, or copy the Figma payload."
+        : "Hover any component, then click to capture."
+    )
+    window.addEventListener("keydown", onOverlayKeyDown, true)
+    window.addEventListener("resize", onHudReposition, true)
+    attachSelectionListeners()
+  }
+
+  function disableCaptureMode() {
+    detachSelectionListeners()
+    window.removeEventListener("keydown", onOverlayKeyDown, true)
+    window.removeEventListener("resize", onHudReposition, true)
+    captureMode = false
+    hoveredElement = null
+    hoverState = null
+    ancestorAdjustment = 0
+    overlayRoot && (overlayRoot.style.display = "none")
+  }
+
+  async function copyFigmaPayloadFromHud() {
+    if (!copyFigmaButton) {
+      return
+    }
+
+    const exporter = window.ReplicodeFigmaExport
+    if (!exporter?.generateImportJson) {
+      updateStatus("Figma exporter is not available on this page.")
+      return
+    }
+
+    const labelEl = copyFigmaButton.querySelector("span") || copyFigmaButton
+    const previousLabel = labelEl.textContent
+    copyFigmaButton.disabled = true
+    labelEl.textContent = "Copying…"
+
+    const restore = () => {
+      labelEl.textContent = previousLabel
+      copyFigmaButton.disabled = false
+    }
+
+    try {
+      const state = await chrome.runtime.sendMessage({ type: "GET_EXTENSION_STATE" })
+      const capture = state?.ok ? state.capture : null
+      if (!capture?.tree) {
+        updateStatus("No capture is available yet. Capture a component first.")
+        restore()
+        return
+      }
+
+      const payload = exporter.generateImportJson(capture)
+      if (!payload) {
+        updateStatus("Could not prepare the Figma payload for this capture.")
+        restore()
+        return
+      }
+
+      const copied = await copyTextToClipboard(payload)
+      labelEl.textContent = copied ? "Copied" : "Failed"
+      updateStatus(
+        copied
+          ? "Figma payload copied. Paste it into the Replicode Figma plugin."
+          : "Copy failed. Open the side panel to copy from there."
+      )
+      window.setTimeout(() => {
+        if (copyFigmaButton) {
+          restore()
+        }
+      }, 1600)
+    } catch (error) {
+      updateStatus(`Could not copy the Figma payload: ${error?.message || error}`)
+      restore()
+    }
   }
 
   function updateStatus(text) {
@@ -276,9 +855,108 @@
     }
   }
 
+  function updateHud(state) {
+    if (!state) {
+      if (scopeDownButton) {
+        scopeDownButton.disabled = true
+      }
+      if (scopeUpButton) {
+        scopeUpButton.disabled = true
+      }
+      if (captureButton) {
+        captureButton.disabled = true
+      }
+      return
+    }
+
+    if (scopeDownButton) {
+      scopeDownButton.disabled = state.previewLevel <= 0
+    }
+    if (scopeUpButton) {
+      scopeUpButton.disabled = state.previewLevel >= state.maxLevel
+    }
+    if (captureButton) {
+      captureButton.disabled = false
+    }
+  }
+
+  function clearHighlight() {
+    if (highlightBox) {
+      highlightBox.style.width = "0px"
+      highlightBox.style.height = "0px"
+      highlightBox.style.opacity = "0"
+    }
+
+    if (labelBox) {
+      labelBox.style.opacity = "0"
+      labelBox.textContent = ""
+    }
+  }
+
+  function buildHoverState(element) {
+    if (!(element instanceof Element)) {
+      return null
+    }
+
+    const chain = collectAncestorChain(element)
+    const recommended = chain.find((item) => item.recommended) || chain[0]
+    const recommendedLevel = recommended?.level ?? 0
+    const maxLevel = Math.max(chain.length - 1, 0)
+    const previewLevel = clampNumber(recommendedLevel + ancestorAdjustment, 0, maxLevel)
+    ancestorAdjustment = previewLevel - recommendedLevel
+
+    return {
+      element,
+      hoveredLabel: describeElement(element),
+      previewLevel,
+      recommendedLevel,
+      maxLevel,
+      previewElement: resolveRoot(element, previewLevel),
+      previewLabel: describeElement(resolveRoot(element, previewLevel))
+    }
+  }
+
+  function syncHoverState(element) {
+    const nextState = buildHoverState(element)
+    if (!nextState) {
+      return
+    }
+
+    hoveredElement = element
+    hoverState = nextState
+    renderHighlight(nextState.previewElement, nextState)
+    updateHud(nextState)
+    updateStatus("Click to capture · Child / Parent adjusts the root")
+  }
+
+  function adjustHoveredScope(delta) {
+    if (!hoveredElement) {
+      return
+    }
+
+    ancestorAdjustment += delta
+    syncHoverState(hoveredElement)
+  }
+
+  async function captureHoveredSelection() {
+    if (!hoverState?.element) {
+      return
+    }
+
+    selectedElement = hoverState.element
+    updateStatus("Capturing selection…")
+    const payload = await captureSelection({ ancestorLevel: hoverState.previewLevel, maxDepth: null })
+    if (payload) {
+      noteCaptureCompleted(payload)
+    }
+  }
+
   function onViewportChange() {
     if (hoveredElement) {
-      renderHighlight(hoveredElement)
+      syncHoverState(hoveredElement)
+    }
+    if (hudPosition) {
+      applyHudPosition()
     }
   }
 
@@ -293,13 +971,16 @@
     }
 
     if (target !== hoveredElement) {
-      hoveredElement = target
-      renderHighlight(target)
+      syncHoverState(target)
     }
   }
 
   function onClick(event) {
-    if (!captureMode || !hoveredElement) {
+    if (!captureMode || !hoverState?.element) {
+      return
+    }
+
+    if (event.target instanceof Element && event.target.closest(`#${OVERLAY_ROOT_ID}`)) {
       return
     }
 
@@ -307,12 +988,18 @@
     event.stopPropagation()
     event.stopImmediatePropagation()
 
-    selectedElement = hoveredElement
-    resetRecordedInteractions()
-    const chain = collectAncestorChain(selectedElement)
-    const recommended = chain.find((item) => item.recommended)
-    captureSelection({ ancestorLevel: recommended?.level ?? 0, maxDepth: null })
-    disableCaptureMode()
+    captureHoveredSelection()
+  }
+
+  function onOverlayKeyDown(event) {
+    if (!overlayRoot || overlayRoot.style.display === "none") {
+      return
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault()
+      disableCaptureMode()
+    }
   }
 
   function onKeyDown(event) {
@@ -328,21 +1015,24 @@
 
     if (event.key === "Enter" && hoveredElement) {
       event.preventDefault()
-      selectedElement = hoveredElement
-      captureSelection({ ancestorLevel: 0, maxDepth: null })
-      disableCaptureMode()
+      captureHoveredSelection()
       return
     }
 
     if ((event.key === "[" || event.key === "ArrowUp") && hoveredElement?.parentElement) {
       event.preventDefault()
-      hoveredElement = hoveredElement.parentElement
-      renderHighlight(hoveredElement)
+      adjustHoveredScope(1)
+      return
+    }
+
+    if ((event.key === "]" || event.key === "ArrowDown") && hoveredElement) {
+      event.preventDefault()
+      adjustHoveredScope(-1)
       return
     }
   }
 
-  function renderHighlight(element) {
+  function renderHighlight(element, state = null) {
     if (!highlightBox || !labelBox || !element) {
       return
     }
@@ -352,12 +1042,17 @@
     highlightBox.style.left = `${rect.left}px`
     highlightBox.style.width = `${Math.max(rect.width, 0)}px`
     highlightBox.style.height = `${Math.max(rect.height, 0)}px`
+    highlightBox.style.opacity = "1"
 
-    labelBox.textContent = `${describeElement(element)} • ${Math.round(rect.width)} × ${Math.round(rect.height)}`
+    const rootLevel = state?.previewLevel ?? 0
+    const suggestionText =
+      state && state.previewLevel !== state.recommendedLevel ? `Root L${rootLevel} • suggested L${state.recommendedLevel}` : `Root L${rootLevel}`
+    labelBox.textContent = `${suggestionText} • ${describeElement(element)} • ${Math.round(rect.width)} × ${Math.round(rect.height)}`
     const labelTop = Math.max(rect.top - 34, 8)
     const labelLeft = Math.max(rect.left, 8)
     labelBox.style.top = `${labelTop}px`
     labelBox.style.left = `${labelLeft}px`
+    labelBox.style.opacity = "1"
   }
 
   function isInspectable(node) {
@@ -1645,7 +2340,7 @@
     const payload = buildCapturePayload(normalizedOptions)
     if (payload.ok === false) {
       updateStatus(payload.error)
-      return
+      return null
     }
 
     const clipboardExport = generateClipboardExport(payload)
@@ -1658,6 +2353,7 @@
     lastCapturePayload = payload
     updateStatus(copied ? "Captured selection and copied HTML + CSS. Review it in the side panel." : "Captured selection. Review it in the side panel.")
     await chrome.runtime.sendMessage({ type: "CAPTURE_RESULT", payload })
+    return payload
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -1695,6 +2391,11 @@
       captureSelection(nextOptions, { preserveInteractions })
         .then(() => sendResponse({ ok: true }))
         .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }))
+      return true
+    }
+
+    if (message?.type === "GET_CAPTURE_MODE") {
+      sendResponse({ ok: true, captureMode })
       return true
     }
 
