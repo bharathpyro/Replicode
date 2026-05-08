@@ -49,7 +49,7 @@
       }
 
       textarea {
-        min-height: 220px;
+        min-height: 160px;
         width: 100%;
         resize: vertical;
         border: 1px solid var(--figma-color-border, #dbe1ea);
@@ -69,7 +69,7 @@
       .actions {
         display: grid;
         gap: 8px;
-        grid-template-columns: 1fr 2fr;
+        grid-template-columns: 1fr 1fr;
       }
 
       button {
@@ -150,6 +150,27 @@
       const clearBtn = document.getElementById("clearBtn")
       const pasteBtn = document.getElementById("pasteBtn")
       const extensionLink = document.getElementById("extensionLink")
+
+      // Tell the plugin to resize its window to hug the current content height.
+      // Width is set in code.js via showUI; we only adjust the height here.
+      let lastReportedHeight = 0
+      function reportHeight() {
+        const h = Math.max(
+          document.documentElement.offsetHeight,
+          document.body.offsetHeight
+        )
+        const rounded = Math.ceil(h)
+        if (rounded !== lastReportedHeight && rounded > 0) {
+          lastReportedHeight = rounded
+          parent.postMessage({ pluginMessage: { type: "RESIZE", height: rounded } }, "*")
+        }
+      }
+
+      if (typeof ResizeObserver !== "undefined") {
+        const ro = new ResizeObserver(() => reportHeight())
+        ro.observe(document.body)
+      }
+      window.addEventListener("load", reportHeight)
 
       function setStatus(text, tone) {
         statusEl.textContent = text || ""

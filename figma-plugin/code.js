@@ -1,6 +1,10 @@
+var DEFAULT_UI_WIDTH = 420
+var MIN_UI_HEIGHT = 200
+var MAX_UI_HEIGHT = 800
+
 figma.showUI(__html__, {
-  width: 420,
-  height: 620,
+  width: DEFAULT_UI_WIDTH,
+  height: 380,
   themeColors: true
 })
 
@@ -1330,7 +1334,19 @@ async function importCapturePayload(rawPayload, importOptions) {
 }
 
 figma.ui.onmessage = async function(message) {
-  if (!message || message.type !== "IMPORT_CAPTURE") {
+  if (!message) {
+    return
+  }
+
+  if (message.type === "RESIZE") {
+    var height = Math.max(MIN_UI_HEIGHT, Math.min(MAX_UI_HEIGHT, Math.round(message.height || 0)))
+    if (height > 0) {
+      figma.ui.resize(DEFAULT_UI_WIDTH, height)
+    }
+    return
+  }
+
+  if (message.type !== "IMPORT_CAPTURE") {
     return
   }
 
