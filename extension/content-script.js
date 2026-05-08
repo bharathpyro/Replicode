@@ -1461,6 +1461,21 @@
     if (tag === "br") {
       return true
     }
+    // Treat SVG as an opaque inline atom — don't peer at its <path>
+    // children (whose computed display is browser-specific and breaks
+    // the "all inline" check). Marketing pages routinely interleave
+    // <svg> icons with text inside a <p> / <div>; without this they'd
+    // be treated as block-level and the inline-flow detection would
+    // give up.
+    if (tag === "svg") {
+      return true
+    }
+    // Empty leaf elements (e.g. <span class="break"> used as a line
+    // separator) carry no own content — they're spacer/break markers
+    // for the parent's inline flow regardless of computed display.
+    if (element.childNodes.length === 0) {
+      return true
+    }
     const display = getElementWindow(element).getComputedStyle(element).display || ""
     return display.startsWith("inline")
   }
@@ -1485,17 +1500,45 @@
       if (child.nodeType === Node.TEXT_NODE) continue
       if (child.nodeType !== Node.ELEMENT_NODE) continue
       if (!isInlineLikeChild(child)) return false
+      // SVGs are opaque — don't recurse into their internal vector
+      // tree, the SVG element itself counts as a single inline atom.
+      if (child.tagName.toLowerCase() === "svg") continue
       if (!isInlineDescendantsOnly(child)) return false
     }
     return true
   }
 
+  function hasInlineSvgChild(element) {
+    for (const child of element.childNodes) {
+      if (child.nodeType !== Node.ELEMENT_NODE) continue
+      const tag = child.tagName.toLowerCase()
+      if (tag === "svg") return true
+      if (tag === "br") continue
+      if (hasInlineSvgChild(child)) return true
+    }
+    return false
+  }
+
   function shouldCaptureAsRichText(element, computedStyle) {
     const display = String(computedStyle.display || "")
     if (display.includes("flex") || display.includes("grid")) return false
-    // Block-level container with only inline content + actual text.
     if (!hasMeaningfulText(element)) return false
-    return isInlineDescendantsOnly(element)
+    if (!isInlineDescendantsOnly(element)) return false
+    // Pure text-flow only — no inline SVG icons. With icons we use the
+    // inline-flow path instead so the icons survive as separate Figma
+    // nodes alongside the text runs.
+    return !hasInlineSvgChild(element)
+  }
+
+  function shouldCaptureAsInlineFlow(element, computedStyle) {
+    const display = String(computedStyle.display || "")
+    if (display.includes("flex") || display.includes("grid")) return false
+    if (!hasMeaningfulText(element)) return false
+    if (!isInlineDescendantsOnly(element)) return false
+    // Inline-flow path triggers when at least one inline SVG icon
+    // appears among text content. Marketing copy ("Develop with your
+    // favorite tools >_") is the textbook case.
+    return hasInlineSvgChild(element)
   }
 
   function buildRichTextChild(element, parentStyles, viewportOffset) {
@@ -1574,6 +1617,125 @@
       ranges,
       metrics: offsetMetrics(rect, viewportOffset)
     }
+  }
+
+  // Walk an inline-flow container's children and emit a flat sequence
+  // of inline runs: each is either a text node (with character-range
+  // styles for any nested colored spans) OR a captured <svg> icon. The
+  // plugin renders these in a wrapping horizontal auto-layout so they
+  // flow inline like the source page, and so each SVG icon survives
+  // as its own Figma vector instead of being silently dropped.
+  function buildInlineFlowChildren(element, parentStyles, viewportOffset) {
+    const result = []
+    let pending = null
+
+    function flushPending() {
+      if (!pending) return
+      // Trim trailing spaces from the last text run.
+      while (pending.text.endsWith(" ")) {
+        pending.text = pending.text.slice(0, -1)
+        const last = pending.ranges[pending.ranges.length - 1]
+        if (!last) break
+        if (last.end > pending.text.length) {
+          last.end = pending.text.length
+          if (last.end <= last.start) pending.ranges.pop()
+        }
+      }
+      if (pending.text) {
+        // Use Range API to get the text's actual bbox.
+        const r = pending.range ? pending.range.getBoundingClientRect() : null
+        const rect = r && (r.width || r.height)
+          ? { x: r.x, y: r.y, width: r.width, height: r.height }
+          : null
+        result.push({
+          type: "text",
+          text: pending.text,
+          ranges: pending.ranges,
+          metrics: rect ? offsetMetrics(rect, viewportOffset) : null
+        })
+      }
+      pending = null
+    }
+
+    function appendText(text, ancestorStyles, sourceNode) {
+      if (!text) return
+      if (!pending) {
+        // Track the first text node we add to derive a Range bbox later.
+        let range = null
+        try {
+          range = sourceNode && sourceNode.ownerDocument ? sourceNode.ownerDocument.createRange() : null
+          if (range && sourceNode) {
+            range.setStart(sourceNode, 0)
+            range.setEndAfter(sourceNode)
+          }
+        } catch {}
+        pending = { text: "", ranges: [], range }
+      } else if (sourceNode && pending.range) {
+        try {
+          pending.range.setEndAfter(sourceNode)
+        } catch {}
+      }
+      // Collapse leading whitespace at the start of a fresh run.
+      const incoming = pending.text.length === 0 && text === " " ? "" : text
+      if (!incoming) return
+      pending.ranges.push({
+        start: pending.text.length,
+        end: pending.text.length + incoming.length,
+        styles: ancestorStyles
+      })
+      pending.text += incoming
+    }
+
+    function visit(node, ancestorStyles) {
+      if (!node) return
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = collapseInlineWhitespace(node.textContent || "")
+        appendText(text, ancestorStyles, node)
+        return
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return
+      const tag = node.tagName.toLowerCase()
+      if (tag === "br") {
+        // End the current text run so the next content starts as a
+        // fresh node. Wrapping auto-layout handles real line breaks
+        // via natural overflow — embedding \n into a text node would
+        // force an unwanted hard wrap that doesn't match the source.
+        flushPending()
+        return
+      }
+      if (tag === "svg") {
+        flushPending()
+        const rect = node.getBoundingClientRect()
+        result.push({
+          type: "element",
+          tag: "svg",
+          attributes: collectAttributes(node),
+          styles: collectStyles(node, ancestorStyles),
+          metrics: offsetMetrics({
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height
+          }, viewportOffset),
+          svgInnerMarkup: serializeSvgInnerMarkup(node),
+          children: []
+        })
+        return
+      }
+      // Plain inline element wrapping more inline content — recurse
+      // with its own merged styles so any nested <span> color/weight
+      // survives as a range.
+      const ownStyles = collectStyles(node, ancestorStyles)
+      for (const child of node.childNodes) {
+        visit(child, ownStyles)
+      }
+    }
+
+    for (const child of element.childNodes) {
+      visit(child, parentStyles)
+    }
+    flushPending()
+    return result
   }
 
   function getElementWindow(element) {
@@ -1810,6 +1972,22 @@
       const richText = buildRichTextChild(element, styles, viewportOffset)
       if (richText) {
         node.children = [richText]
+        return node
+      }
+    }
+
+    // Inline-flow short-circuit: same idea as rich text, but the
+    // container has at least one inline <svg> icon mixed into the
+    // text. We emit a flat list of alternating text-runs and SVG
+    // children, plus an inlineFlow flag that tells the Figma plugin to
+    // render this container as a wrapping HORIZONTAL auto-layout so
+    // the text and icons flow side-by-side and wrap to multiple lines
+    // like the source page.
+    if (shouldCaptureAsInlineFlow(element, computedStyle)) {
+      const flowChildren = buildInlineFlowChildren(element, styles, viewportOffset)
+      if (flowChildren && flowChildren.length) {
+        node.inlineFlow = true
+        node.children = flowChildren
         return node
       }
     }

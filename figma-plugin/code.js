@@ -1553,6 +1553,33 @@ function inferCounterAlignment(captureNode, direction) {
 
 function applyAutoLayout(frame, captureNode, options) {
   const styles = captureNode.styles || {}
+
+  // Inline-flow containers (text + inline <svg> icons) take a special
+  // path: HORIZONTAL auto-layout with WRAP, regardless of the original
+  // CSS display, so each text run and icon sits side-by-side and wraps
+  // to a new line when it would overflow — matching how the browser
+  // laid them out as inline content.
+  if (captureNode.inlineFlow) {
+    frame.layoutMode = "HORIZONTAL"
+    frame.primaryAxisSizingMode = "FIXED"
+    frame.counterAxisSizingMode = "AUTO"
+    if ("layoutWrap" in frame) {
+      frame.layoutWrap = "WRAP"
+    }
+    frame.primaryAxisAlignItems = mapPrimaryAxisAlignment(styles["justify-content"]) || "MIN"
+    // Center vertically so icons sit on the text baseline visually.
+    frame.counterAxisAlignItems = "CENTER"
+    const gap = parsePx(styles.gap || styles["column-gap"], 4)
+    frame.itemSpacing = Math.max(0, gap)
+    if ("counterAxisSpacing" in frame) {
+      const lineGap = parsePx(styles["row-gap"], gap)
+      frame.counterAxisSpacing = Math.max(0, lineGap)
+    }
+    applyPaddingToFrame(frame, styles)
+    resizeNode(frame, captureNode.metrics)
+    return true
+  }
+
   if (!canUseAutoLayout(captureNode, options)) {
     return false
   }
