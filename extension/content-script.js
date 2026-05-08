@@ -109,6 +109,9 @@
     "background-size",
     "background-position",
     "background-repeat",
+    "background-clip",
+    "-webkit-background-clip",
+    "-webkit-text-fill-color",
     "box-shadow",
     "opacity",
     "filter",
@@ -1476,17 +1479,28 @@
 
     if (!combined) return null
 
-    const rect = element.getBoundingClientRect()
+    // Prefer the text content's actual bbox (Range API) so the rich-text
+    // child reflects only the rendered text, not the outer padding/border
+    // box. Falls back to the element's bbox when Range fails.
+    let rect = null
+    try {
+      const range = element.ownerDocument.createRange()
+      range.selectNodeContents(element)
+      const r = range.getBoundingClientRect()
+      if (r && (r.width || r.height)) {
+        rect = { x: r.x, y: r.y, width: r.width, height: r.height }
+      }
+    } catch {}
+    if (!rect) {
+      const r = element.getBoundingClientRect()
+      rect = { x: r.x, y: r.y, width: r.width, height: r.height }
+    }
+
     return {
       type: "text",
       text: combined,
       ranges,
-      metrics: offsetMetrics({
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height
-      }, viewportOffset)
+      metrics: offsetMetrics(rect, viewportOffset)
     }
   }
 

@@ -446,6 +446,35 @@ function parseGradientPaint(value) {
   return null
 }
 
+// CSS pattern: gradient-styled text via background-clip: text +
+// transparent text color (commonly with -webkit-text-fill-color:
+// transparent). The visible text color IS the gradient. Detect this
+// and return the gradient paint to use as the TEXT fill.
+function resolveTextFillPaint(rangeStyles) {
+  const styles = rangeStyles || {}
+  const clip = String(styles["background-clip"] || styles["-webkit-background-clip"] || "").toLowerCase()
+  const colorValue = String(styles.color || "").toLowerCase().trim()
+  const webkitFillValue = String(styles["-webkit-text-fill-color"] || "").toLowerCase().trim()
+  const isClipText = clip === "text"
+  const transparentColor =
+    colorValue === "transparent" ||
+    colorValue === "rgba(0, 0, 0, 0)" ||
+    colorValue.startsWith("rgba(0,0,0,0)")
+  const transparentWebkitFill =
+    webkitFillValue === "transparent" ||
+    webkitFillValue === "rgba(0, 0, 0, 0)" ||
+    webkitFillValue.startsWith("rgba(0,0,0,0)")
+
+  // Either the explicit -webkit-text-fill-color is transparent, or the
+  // standard color is transparent and there's a clip:text + gradient bg.
+  if ((isClipText && (transparentColor || transparentWebkitFill)) || transparentWebkitFill) {
+    const gradient = parseGradientPaint(styles["background-image"] || "")
+    if (gradient) return gradient
+  }
+
+  return toSolidPaint(styles.color || "")
+}
+
 function parseBoxValues(styles, prefix) {
   const top = parsePx(styles[prefix + "-top"], 0)
   const right = parsePx(styles[prefix + "-right"], top)
@@ -1306,7 +1335,7 @@ async function createTextNode(textNode, inheritedStyles, options) {
     text.letterSpacing = letterSpacing
   }
 
-  const fill = toSolidPaint(styles.color || "#111827")
+  const fill = resolveTextFillPaint(styles) || toSolidPaint("#111827")
   if (fill) {
     text.fills = [fill]
   }
@@ -1353,7 +1382,7 @@ async function applyTextRanges(text, ranges, fallbackStyles) {
       text.setRangeFontName(range.start, range.end, range.fontName)
       const rangeFontSize = Math.max(1, parsePx(range.styles["font-size"], text.fontSize))
       text.setRangeFontSize(range.start, range.end, rangeFontSize)
-      const rangeFill = toSolidPaint(range.styles.color || "")
+      const rangeFill = resolveTextFillPaint(range.styles)
       if (rangeFill) {
         text.setRangeFills(range.start, range.end, [rangeFill])
       }
