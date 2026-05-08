@@ -436,6 +436,64 @@ function parseRadialGradientPaint(value) {
   }
 }
 
+// CSS: conic-gradient([from <angle>] [at <position>], <stops>)
+// Figma: GRADIENT_ANGULAR sweeps colors around a center point; the
+// transform's translation is the center, and rotation sets the start
+// angle. We map "from <a>deg at <x>% <y>%" to a sensible approximation
+// — full angular sweep, centered at the captured position, rotated to
+// match the CSS start angle.
+function parseConicGradientPaint(value) {
+  const inner = String(value || "").trim()
+  const match = inner.match(/^conic-gradient\((.*)\)\s*$/i)
+  if (!match) return null
+  const args = splitTopLevelCommas(match[1])
+  if (!args.length) return null
+
+  let stopStart = 0
+  let startDeg = 0 // CSS conic default: 0 = up
+  let centerX = 0.5
+  let centerY = 0.5
+
+  // Match optional "from <angle>" and/or "at <position>" prefix. CSS
+  // grammar allows them in either order on the first arg.
+  const head = args[0].trim().toLowerCase()
+  if (/^(from\s|at\s)/.test(head)) {
+    stopStart = 1
+    const fromMatch = head.match(/from\s+([\-\d.]+)(deg|grad|rad|turn)?/)
+    if (fromMatch) {
+      const angle = parseAngleToCssDeg(fromMatch[1] + (fromMatch[2] || "deg"))
+      if (angle != null) startDeg = angle
+    }
+    const atMatch = head.match(/at\s+([\-\d.]+%?)\s+([\-\d.]+%?)/)
+    if (atMatch) {
+      const cx = parseFloat(atMatch[1])
+      const cy = parseFloat(atMatch[2])
+      if (!Number.isNaN(cx)) centerX = clamp(atMatch[1].includes("%") ? cx / 100 : cx, 0, 1)
+      if (!Number.isNaN(cy)) centerY = clamp(atMatch[2].includes("%") ? cy / 100 : cy, 0, 1)
+    }
+  }
+
+  const stops = buildGradientStops(args.slice(stopStart))
+  if (!stops) return null
+
+  // Rotate the standard angular axis by startDeg around the center.
+  const rad = (startDeg * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  const a = cos
+  const b = -sin
+  const c = sin
+  const d = cos
+  const e = centerX - centerX * a - centerY * b
+  const f = centerY - centerX * c - centerY * d
+
+  return {
+    type: "GRADIENT_ANGULAR",
+    gradientStops: stops,
+    gradientTransform: [[a, b, e], [c, d, f]]
+  }
+}
+
 // Convert a CSS background-image value into a Figma gradient paint when
 // possible. Returns null for url() values or unsupported gradient types.
 function parseGradientPaint(value) {
@@ -443,6 +501,7 @@ function parseGradientPaint(value) {
   if (!text) return null
   if (text.startsWith("linear-gradient(")) return parseLinearGradientPaint(text)
   if (text.startsWith("radial-gradient(")) return parseRadialGradientPaint(text)
+  if (text.startsWith("conic-gradient(")) return parseConicGradientPaint(text)
   return null
 }
 
@@ -676,6 +735,28 @@ function shouldIgnoreNode(node, isRoot) {
 
   if (["defs", "clippath", "clipPath", "mask", "metadata", "desc", "title"].includes(node.tag)) {
     return true
+  }
+
+  // display: contents has no box of its own; if its children are also
+  // empty decorative elements (e.g. Vercel's grid-guide divs that draw
+  // background grid lines via absolute-position borders), skip them so
+  // they don't add hundreds of empty frames to the import.
+  if (!isRoot && display === "contents") {
+    const kids = node.children || []
+    if (!kids.length) return true
+  }
+
+  // aria-hidden, no children, zero size, no visible decoration. These
+  // are pure decorative scaffolding (overlays, grid guides, separators
+  // drawn with borders only that we already captured on the parent).
+  if (!isRoot && node.type === "element") {
+    const ariaHidden = node.attributes && (node.attributes["aria-hidden"] === "true" || node.attributes["aria-hidden"] === true)
+    const kids = node.children || []
+    const m = node.metrics || {}
+    const hasZeroSize = !m.width && !m.height
+    if (ariaHidden && !kids.length && hasZeroSize) {
+      return true
+    }
   }
 
   return false
@@ -1081,15 +1162,33 @@ function serializeSvgNode(node, isRoot) {
   return "<" + tagName + (attributes ? " " + attributes : "") + ">" + children + "</" + tagName + ">"
 }
 
+// Resolve "currentColor" inside an SVG markup string to an actual color
+// value. figma.createNodeFromSvg doesn't run the CSS cascade, so the
+// inherited <color> never resolves and stroked icons render invisibly.
+function resolveCurrentColorInSvg(markup, fallbackColor) {
+  if (!markup) return markup
+  const cssVarFallback = String(fallbackColor || "").trim() || "#ffffff"
+  // Replace currentColor (case-insensitive) and any unresolved
+  // var(--name) references with the supplied fallback. Most page-level
+  // CSS variables won't be available inside the plugin sandbox.
+  let result = markup.replace(/currentColor/gi, cssVarFallback)
+  result = result.replace(/var\(\s*--[^,)]+(?:,\s*([^)]+))?\)/g, function(_, fb) {
+    return (fb || cssVarFallback).trim()
+  })
+  return result
+}
+
 function buildSvgMarkup(node) {
   const tagName = node.tag || "svg"
   const attributes = buildSvgAttributes(node, true)
+  const inheritedColor = (node.styles && node.styles.color) || ""
 
   if (typeof node.svgInnerMarkup === "string") {
-    return "<" + tagName + (attributes ? " " + attributes : "") + ">" + node.svgInnerMarkup + "</" + tagName + ">"
+    const resolvedInner = resolveCurrentColorInSvg(node.svgInnerMarkup, inheritedColor)
+    return "<" + tagName + (attributes ? " " + attributes : "") + ">" + resolvedInner + "</" + tagName + ">"
   }
 
-  return serializeSvgNode(node, true)
+  return resolveCurrentColorInSvg(serializeSvgNode(node, true), inheritedColor)
 }
 
 function applyPaddingToFrame(frame, styles) {
