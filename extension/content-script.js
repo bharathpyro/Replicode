@@ -1372,6 +1372,124 @@
     return value.replace(/\s+/g, " ").trim()
   }
 
+  // Preserves leading/trailing whitespace so concatenated inline runs keep
+  // their natural spacing (e.g. " or " between colored spans).
+  function collapseInlineWhitespace(value) {
+    return String(value || "").replace(/\s+/g, " ")
+  }
+
+  function isInlineLikeChild(element) {
+    if (!(element instanceof Element)) {
+      return false
+    }
+    const tag = element.tagName.toLowerCase()
+    if (tag === "br") {
+      return true
+    }
+    const display = getElementWindow(element).getComputedStyle(element).display || ""
+    return display.startsWith("inline")
+  }
+
+  function hasMeaningfulText(node) {
+    if (!node) return false
+    for (const child of node.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        if (normalizeText(child.textContent || "").length > 0) {
+          return true
+        }
+        continue
+      }
+      if (child.nodeType !== Node.ELEMENT_NODE) continue
+      if (hasMeaningfulText(child)) return true
+    }
+    return false
+  }
+
+  function isInlineDescendantsOnly(element) {
+    for (const child of element.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) continue
+      if (child.nodeType !== Node.ELEMENT_NODE) continue
+      if (!isInlineLikeChild(child)) return false
+      if (!isInlineDescendantsOnly(child)) return false
+    }
+    return true
+  }
+
+  function shouldCaptureAsRichText(element, computedStyle) {
+    const display = String(computedStyle.display || "")
+    if (display.includes("flex") || display.includes("grid")) return false
+    // Block-level container with only inline content + actual text.
+    if (!hasMeaningfulText(element)) return false
+    return isInlineDescendantsOnly(element)
+  }
+
+  function buildRichTextChild(element, parentStyles, viewportOffset) {
+    const ranges = []
+    let combined = ""
+
+    function visit(node, ancestorStyles) {
+      if (!node) return
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = collapseInlineWhitespace(node.textContent || "")
+        if (!text) return
+        // Skip a leading whitespace-only chunk to avoid stray spaces at the start.
+        if (combined.length === 0 && text === " ") return
+        ranges.push({
+          start: combined.length,
+          end: combined.length + text.length,
+          styles: ancestorStyles
+        })
+        combined += text
+        return
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return
+      const tag = node.tagName.toLowerCase()
+      if (tag === "br") {
+        ranges.push({
+          start: combined.length,
+          end: combined.length + 1,
+          styles: ancestorStyles
+        })
+        combined += "\n"
+        return
+      }
+      const ownStyles = collectStyles(node, ancestorStyles)
+      for (const child of node.childNodes) {
+        visit(child, ownStyles)
+      }
+    }
+
+    for (const child of element.childNodes) {
+      visit(child, parentStyles)
+    }
+
+    // Trim a trailing space.
+    while (combined.endsWith(" ")) {
+      combined = combined.slice(0, -1)
+      const last = ranges[ranges.length - 1]
+      if (!last) break
+      if (last.end > combined.length) {
+        last.end = combined.length
+        if (last.end <= last.start) ranges.pop()
+      }
+    }
+
+    if (!combined) return null
+
+    const rect = element.getBoundingClientRect()
+    return {
+      type: "text",
+      text: combined,
+      ranges,
+      metrics: offsetMetrics({
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height
+      }, viewportOffset)
+    }
+  }
+
   function getElementWindow(element) {
     return element?.ownerDocument?.defaultView || window
   }
@@ -1568,6 +1686,19 @@
       }
 
       return node
+    }
+
+    // Text-flow short-circuit: when the element only contains inline content
+    // (text nodes + <span>-like elements), emit one rich-text node carrying
+    // character-range styles instead of N independent inline children. This
+    // is what lets Figma render colored sub-spans (e.g. gradient "Pro" /
+    // "Enterprise") inline rather than stacking them as separate frames.
+    if (shouldCaptureAsRichText(element, computedStyle)) {
+      const richText = buildRichTextChild(element, styles, viewportOffset)
+      if (richText) {
+        node.children = [richText]
+        return node
+      }
     }
 
     let childIndex = 0

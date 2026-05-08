@@ -260,6 +260,192 @@ function toSolidPaint(value) {
   return paint
 }
 
+// Split CSS function args at commas while respecting nested parens like
+// rgba() or color() inside a gradient stop list.
+function splitTopLevelCommas(value) {
+  const parts = []
+  let depth = 0
+  let current = ""
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value[i]
+    if (ch === "(") depth += 1
+    else if (ch === ")") depth -= 1
+    if (ch === "," && depth === 0) {
+      parts.push(current.trim())
+      current = ""
+    } else {
+      current += ch
+    }
+  }
+  if (current.trim()) parts.push(current.trim())
+  return parts
+}
+
+function parseAngleToCssDeg(token) {
+  const match = String(token || "").trim().match(/^(-?\d*\.?\d+)(deg|grad|rad|turn)?$/i)
+  if (!match) return null
+  const num = parseFloat(match[1])
+  const unit = (match[2] || "deg").toLowerCase()
+  if (unit === "rad") return (num * 180) / Math.PI
+  if (unit === "grad") return num * 0.9
+  if (unit === "turn") return num * 360
+  return num
+}
+
+function directionKeywordToCssDeg(token) {
+  const lower = String(token || "").trim().toLowerCase()
+  if (!lower.startsWith("to ")) return null
+  const dir = lower.slice(3).trim()
+  switch (dir) {
+    case "top": return 0
+    case "right": return 90
+    case "bottom": return 180
+    case "left": return 270
+    case "top right":
+    case "right top": return 45
+    case "bottom right":
+    case "right bottom": return 135
+    case "bottom left":
+    case "left bottom": return 225
+    case "top left":
+    case "left top": return 315
+    default: return null
+  }
+}
+
+// Map a CSS gradient angle (0=up, 90=right, 180=down, 270=left) onto
+// Figma's gradientTransform. Figma's default linear gradient runs from
+// (0,0) to (1,0) in node-local UV space, scaled by the node's bounding
+// box. We rotate that around (0.5, 0.5) by (angle - 90°) so 180deg in
+// CSS yields a top-to-bottom gradient in Figma.
+function gradientTransformFromCssAngle(cssDeg) {
+  const angle = ((cssDeg - 90) * Math.PI) / 180
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  // Affine [[a, b, e], [c, d, f]] applied to (x, y) gives a*x+b*y+e,
+  // c*x+d*y+f. We want the unit X axis to map to the gradient
+  // direction, centered at (0.5, 0.5).
+  const a = cos
+  const b = -sin
+  const c = sin
+  const d = cos
+  const e = 0.5 - 0.5 * a - 0.5 * b
+  const f = 0.5 - 0.5 * c - 0.5 * d
+  return [[a, b, e], [c, d, f]]
+}
+
+function buildGradientStops(stopTokens) {
+  const colors = []
+  for (const token of stopTokens) {
+    const trimmed = String(token || "").trim()
+    if (!trimmed) continue
+    const parenEnd = trimmed.lastIndexOf(")")
+    let colorPart = trimmed
+    let positionPart = ""
+    if (parenEnd >= 0 && parenEnd < trimmed.length - 1) {
+      colorPart = trimmed.slice(0, parenEnd + 1)
+      positionPart = trimmed.slice(parenEnd + 1).trim()
+    } else {
+      const lastSpace = trimmed.lastIndexOf(" ")
+      if (lastSpace > 0 && /^-?\d/.test(trimmed.slice(lastSpace + 1))) {
+        colorPart = trimmed.slice(0, lastSpace)
+        positionPart = trimmed.slice(lastSpace + 1).trim()
+      }
+    }
+    const parsed = parseColor(colorPart)
+    if (!parsed) continue
+    let position = null
+    if (positionPart) {
+      const m = positionPart.match(/^(-?\d*\.?\d+)(%|px)?$/)
+      if (m) {
+        const num = parseFloat(m[1])
+        position = m[2] === "px" ? clamp(num / 1000, 0, 1) : clamp(num / 100, 0, 1)
+      }
+    }
+    colors.push({ color: parsed, position })
+  }
+
+  if (colors.length < 2) return null
+
+  // Distribute positions evenly when missing.
+  for (let i = 0; i < colors.length; i += 1) {
+    if (colors[i].position == null) {
+      if (i === 0) colors[i].position = 0
+      else if (i === colors.length - 1) colors[i].position = 1
+      else colors[i].position = i / (colors.length - 1)
+    }
+  }
+
+  return colors.map(({ color, position }) => ({
+    color: { r: color.r / 255, g: color.g / 255, b: color.b / 255, a: color.a },
+    position
+  }))
+}
+
+function parseLinearGradientPaint(value) {
+  const inner = String(value || "").trim()
+  const match = inner.match(/^linear-gradient\((.*)\)\s*$/i)
+  if (!match) return null
+  const args = splitTopLevelCommas(match[1])
+  if (!args.length) return null
+
+  let cssDeg = 180 // CSS default: top → bottom
+  let stopStart = 0
+  const angle = parseAngleToCssDeg(args[0])
+  const direction = directionKeywordToCssDeg(args[0])
+  if (angle != null) {
+    cssDeg = angle
+    stopStart = 1
+  } else if (direction != null) {
+    cssDeg = direction
+    stopStart = 1
+  }
+
+  const stops = buildGradientStops(args.slice(stopStart))
+  if (!stops) return null
+
+  return {
+    type: "GRADIENT_LINEAR",
+    gradientStops: stops,
+    gradientTransform: gradientTransformFromCssAngle(cssDeg)
+  }
+}
+
+function parseRadialGradientPaint(value) {
+  const inner = String(value || "").trim()
+  const match = inner.match(/^radial-gradient\((.*)\)\s*$/i)
+  if (!match) return null
+  const args = splitTopLevelCommas(match[1])
+  if (!args.length) return null
+
+  // Skip the optional shape/size/position descriptor (anything that
+  // doesn't parse as a color). We don't reproduce shape exactly — we
+  // just emit a centered radial gradient.
+  let stopStart = 0
+  if (args.length > 0 && !parseColor(args[0])) {
+    stopStart = 1
+  }
+
+  const stops = buildGradientStops(args.slice(stopStart))
+  if (!stops) return null
+
+  return {
+    type: "GRADIENT_RADIAL",
+    gradientStops: stops,
+    gradientTransform: [[1, 0, 0], [0, 1, 0]]
+  }
+}
+
+// Convert a CSS background-image value into a Figma gradient paint when
+// possible. Returns null for url() values or unsupported gradient types.
+function parseGradientPaint(value) {
+  const text = String(value || "").trim()
+  if (!text) return null
+  if (text.startsWith("linear-gradient(")) return parseLinearGradientPaint(text)
+  if (text.startsWith("radial-gradient(")) return parseRadialGradientPaint(text)
+  return null
+}
+
 function parseBoxValues(styles, prefix) {
   const top = parsePx(styles[prefix + "-top"], 0)
   const right = parsePx(styles[prefix + "-right"], top)
@@ -922,12 +1108,20 @@ async function applyVisualStyles(node, captureNode, options, explicitImageUrl) {
       fills.push(backgroundFill)
     }
 
-    const imageUrl = explicitImageUrl || extractFirstUrl(styles["background-image"])
+    const backgroundImage = styles["background-image"] || ""
+    const imageUrl = explicitImageUrl || extractFirstUrl(backgroundImage)
     if (options.importImages && imageUrl) {
       const imagePaint = await createRemoteImagePaint(imageUrl)
       if (imagePaint) {
         fills.push(imagePaint)
         result.appliedImageFill = true
+      }
+    } else {
+      // Try CSS gradient (linear-gradient / radial-gradient). Figma
+      // renders these as native gradient paints on top of the solid bg.
+      const gradientPaint = parseGradientPaint(backgroundImage)
+      if (gradientPaint) {
+        fills.push(gradientPaint)
       }
     }
 
@@ -959,6 +1153,46 @@ async function applyVisualStyles(node, captureNode, options, explicitImageUrl) {
   return result
 }
 
+// Look at where children sit in the parent's bounding box on the cross
+// axis and infer Figma's counterAxisAlignItems. Used when the source
+// isn't display:flex (where align-items would tell us directly).
+function inferCounterAlignment(captureNode, direction) {
+  const parentMetrics = getNodeMetrics(captureNode)
+  if (!parentMetrics) return "MIN"
+  const children = getRenderableChildren(captureNode)
+  if (!children.length) return "MIN"
+
+  let centered = 0
+  let leading = 0
+  let trailing = 0
+
+  for (const child of children) {
+    const m = getNodeMetrics(child)
+    if (!m) continue
+    if (direction === "VERTICAL") {
+      const left = m.x - parentMetrics.x
+      const right = parentMetrics.x + parentMetrics.width - (m.x + m.width)
+      const slack = parentMetrics.width - m.width
+      if (slack <= 4) continue
+      if (Math.abs(left - right) <= Math.max(4, slack * 0.1)) centered += 1
+      else if (left < right) leading += 1
+      else trailing += 1
+    } else {
+      const top = m.y - parentMetrics.y
+      const bottom = parentMetrics.y + parentMetrics.height - (m.y + m.height)
+      const slack = parentMetrics.height - m.height
+      if (slack <= 4) continue
+      if (Math.abs(top - bottom) <= Math.max(4, slack * 0.1)) centered += 1
+      else if (top < bottom) leading += 1
+      else trailing += 1
+    }
+  }
+
+  if (centered >= leading && centered >= trailing && centered > 0) return "CENTER"
+  if (trailing > leading) return "MAX"
+  return "MIN"
+}
+
 function applyAutoLayout(frame, captureNode, options) {
   const styles = captureNode.styles || {}
   if (!canUseAutoLayout(captureNode, options)) {
@@ -975,7 +1209,22 @@ function applyAutoLayout(frame, captureNode, options) {
   frame.primaryAxisSizingMode = "FIXED"
   frame.counterAxisSizingMode = "FIXED"
   frame.primaryAxisAlignItems = mapPrimaryAxisAlignment(styles["justify-content"])
-  frame.counterAxisAlignItems = mapCounterAxisAlignment(styles["align-items"])
+
+  if (isFlex && styles["align-items"]) {
+    frame.counterAxisAlignItems = mapCounterAxisAlignment(styles["align-items"])
+  } else {
+    // For non-flex containers (or flex containers without align-items),
+    // infer from child geometry. This catches block-level content that's
+    // centered via `text-align: center` or `margin: auto`.
+    const inferred = inferCounterAlignment(captureNode, direction)
+    // Also check text-align: center as an explicit signal for centering.
+    const textAlign = String(styles["text-align"] || "").trim()
+    if (!isFlex && (textAlign === "center" || textAlign === "-webkit-center")) {
+      frame.counterAxisAlignItems = "CENTER"
+    } else {
+      frame.counterAxisAlignItems = inferred
+    }
+  }
 
   const gap = direction === "VERTICAL"
     ? parsePx(styles.gap || styles["row-gap"], 8)
@@ -1028,19 +1277,21 @@ function setAutoLayoutChildSizing(childNode, child, parentNode, parentMetrics, l
 
 async function createTextNode(textNode, inheritedStyles, options) {
   const textValue = textNode && textNode.text ? textNode.text : ""
+  const ranges = Array.isArray(textNode && textNode.ranges) ? textNode.ranges : null
   const text = figma.createText()
   const styles = mergeStyles({}, inheritedStyles || {})
-  const fontName = await resolveFontName(styles)
   const metrics = textNode && textNode.metrics ? textNode.metrics : null
   const whiteSpace = String(styles["white-space"] || "normal").trim()
   const fontSize = Math.max(1, parsePx(styles["font-size"], 14))
   const lineHeightValue = parsePx(styles["line-height"], fontSize * 1.2)
   const singleLineMetrics = !!(metrics && metrics.height > 0 && metrics.height <= lineHeightValue * 1.5)
 
-  await figma.loadFontAsync(fontName)
-  text.fontName = fontName
-  text.characters = textValue
+  // Resolve the container font first so an empty / missing range still renders.
+  const fallbackFontName = await resolveFontName(styles)
+  await figma.loadFontAsync(fallbackFontName)
+  text.fontName = fallbackFontName
   text.fontSize = fontSize
+  text.characters = textValue
   text.name = textValue.length > 48 ? textValue.slice(0, 45) + "..." : textValue
   text.textAlignHorizontal = mapTextAlign(styles["text-align"])
   text.textAlignVertical = "TOP"
@@ -1060,6 +1311,10 @@ async function createTextNode(textNode, inheritedStyles, options) {
     text.fills = [fill]
   }
 
+  if (ranges && ranges.length) {
+    await applyTextRanges(text, ranges, styles)
+  }
+
   if (metrics && metrics.width > 0) {
     text.resize(Math.max(1, Math.round(metrics.width)), Math.max(1, Math.round(metrics.height || 1)))
     text.textAutoResize = whiteSpace === "nowrap" || singleLineMetrics ? "WIDTH_AND_HEIGHT" : "HEIGHT"
@@ -1068,6 +1323,62 @@ async function createTextNode(textNode, inheritedStyles, options) {
   }
 
   return text
+}
+
+// Apply per-character-range styles on a TEXT node. Each range carries its
+// own merged styles snapshot from the source <span>/<a>/<strong>/etc.
+async function applyTextRanges(text, ranges, fallbackStyles) {
+  const characterCount = text.characters.length
+  if (!characterCount) return
+
+  // Pre-load every distinct font we'll need so setRangeFontName never fails.
+  const seenFonts = new Map()
+  const resolvedRanges = []
+
+  for (const range of ranges) {
+    if (!range || range.start == null || range.end == null) continue
+    const start = Math.max(0, Math.min(characterCount, range.start))
+    const end = Math.max(start, Math.min(characterCount, range.end))
+    if (end <= start) continue
+    const merged = mergeStyles(fallbackStyles || {}, range.styles || {})
+    const fontName = await resolveFontName(merged)
+    seenFonts.set(fontName.family + "|" + fontName.style, fontName)
+    resolvedRanges.push({ start, end, styles: merged, fontName })
+  }
+
+  await Promise.all(Array.from(seenFonts.values()).map((fn) => figma.loadFontAsync(fn)))
+
+  for (const range of resolvedRanges) {
+    try {
+      text.setRangeFontName(range.start, range.end, range.fontName)
+      const rangeFontSize = Math.max(1, parsePx(range.styles["font-size"], text.fontSize))
+      text.setRangeFontSize(range.start, range.end, rangeFontSize)
+      const rangeFill = toSolidPaint(range.styles.color || "")
+      if (rangeFill) {
+        text.setRangeFills(range.start, range.end, [rangeFill])
+      }
+      const rangeLineHeight = parseLineHeight(range.styles["line-height"])
+      if (rangeLineHeight) {
+        text.setRangeLineHeight(range.start, range.end, rangeLineHeight)
+      }
+      const rangeLetterSpacing = parseLetterSpacing(range.styles["letter-spacing"])
+      if (rangeLetterSpacing) {
+        text.setRangeLetterSpacing(range.start, range.end, rangeLetterSpacing)
+      }
+      const decoration = String(range.styles["text-decoration"] || range.styles["text-decoration-line"] || "").toLowerCase()
+      if (decoration.includes("underline")) {
+        text.setRangeTextDecoration(range.start, range.end, "UNDERLINE")
+      } else if (decoration.includes("line-through")) {
+        text.setRangeTextDecoration(range.start, range.end, "STRIKETHROUGH")
+      }
+      const transform = String(range.styles["text-transform"] || "").toLowerCase()
+      if (transform === "uppercase" || transform === "lowercase" || transform === "capitalize") {
+        text.setRangeTextCase(range.start, range.end, transform === "uppercase" ? "UPPER" : transform === "lowercase" ? "LOWER" : "TITLE")
+      }
+    } catch (error) {
+      // A single broken range shouldn't kill the whole text node.
+    }
+  }
 }
 
 async function createImagePlaceholder(node, options) {
@@ -1187,6 +1498,7 @@ async function buildNode(node, inheritedStyles, options, isRoot) {
     return createTextNode({
       type: "text",
       text: node.children[0].text,
+      ranges: node.children[0].ranges,
       metrics: node.metrics || node.children[0].metrics || null
     }, mergedStyles, options)
   }
