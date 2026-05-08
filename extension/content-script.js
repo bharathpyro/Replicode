@@ -508,7 +508,7 @@
             </svg>
             <span data-role="code-label">Code</span>
           </button>
-          <button type="button" class="ui-extractor-hud-button" data-action="copy-figma" title="Copy paste-ready SVG (paste directly into Figma)" disabled>
+          <button type="button" class="ui-extractor-hud-button" data-action="copy-figma" title="Copy Figma plugin payload (editable auto-layout, requires plugin)" disabled>
             <svg class="ui-extractor-hud-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -804,19 +804,23 @@
     overlayRoot && (overlayRoot.style.display = "none")
   }
 
-  // Copy a paste-ready SVG of the captured component. Figma converts
-  // SVG paste into native editable layers (Frame + Rect + Text +
-  // Vector), so the user can ⌘V directly into Figma without installing
-  // any plugin. The JSON-payload path is kept on the export module
-  // for power users who still want the plugin's auto-layout
-  // reconstruction, but it's no longer the default workflow.
+  // Copy the JSON payload that the Replicode Figma plugin imports.
+  // This is the high-fidelity path: the plugin reconstructs the
+  // capture as proper Figma nodes — auto-layout frames sized to match
+  // the source, text layers with character-range styling for inline
+  // colored spans, native vector icons, gradient fills, multi-layer
+  // shadows. The trade-off is that the user needs the plugin
+  // installed; we kept SVG paste as a fallback in the exporter
+  // (window.ReplicodeFigmaExport.buildPasteableSvg) for the no-plugin
+  // case but it produces absolute-positioned layers, not editable
+  // auto-layout.
   async function copyFigmaPayloadFromHud() {
     if (!copyFigmaButton) {
       return
     }
 
     const exporter = window.ReplicodeFigmaExport
-    if (!exporter?.buildPasteableSvg) {
+    if (!exporter?.generateImportJson) {
       updateStatus("Figma exporter is not available on this page.")
       return
     }
@@ -840,18 +844,18 @@
         return
       }
 
-      const svg = exporter.buildPasteableSvg(capture)
-      if (!svg) {
-        updateStatus("Could not prepare the Figma SVG for this capture.")
+      const payload = exporter.generateImportJson(capture)
+      if (!payload) {
+        updateStatus("Could not prepare the Figma payload for this capture.")
         restore()
         return
       }
 
-      const copied = await copyTextToClipboard(svg)
+      const copied = await copyTextToClipboard(payload)
       labelEl.textContent = copied ? "Copied" : "Failed"
       updateStatus(
         copied
-          ? "Figma SVG copied. Switch to Figma and press ⌘V (Ctrl+V) to paste."
+          ? "Figma payload copied. Paste it into the Replicode Figma plugin to get editable layers."
           : "Copy failed. Try again or open the side panel."
       )
       window.setTimeout(() => {
@@ -860,7 +864,7 @@
         }
       }, 1800)
     } catch (error) {
-      updateStatus(`Could not copy the Figma SVG: ${error?.message || error}`)
+      updateStatus(`Could not copy the Figma payload: ${error?.message || error}`)
       restore()
     }
   }
