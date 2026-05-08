@@ -116,6 +116,7 @@
     "opacity",
     "filter",
     "backdrop-filter",
+    "mix-blend-mode",
     "color",
     "font-family",
     "font-size",

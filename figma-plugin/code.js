@@ -617,29 +617,28 @@ function parseLetterSpacing(value) {
   return null
 }
 
-function parseBoxShadow(value) {
-  const input = String(value || "").trim()
-  if (!input || input === "none") {
-    return null
-  }
-
-  const firstShadow = input.split(/,(?![^(]*\))/)[0]
-  const colorMatch = firstShadow.match(/(rgba?\([^)]+\)|#[0-9a-fA-F]{3,8})/)
+// Parse a single CSS shadow segment ("0 1px 2px rgba(0,0,0,0.16)" etc.)
+// into a Figma effect. Detects "inset" → INNER_SHADOW. Returns null if
+// the segment doesn't carry a parseable color.
+function parseSingleBoxShadow(segment) {
+  const text = String(segment || "").trim()
+  if (!text) return null
+  const isInset = /(^|\s)inset(\s|$)/i.test(text)
+  const cleaned = text.replace(/(^|\s)inset(\s|$)/i, " ")
+  const colorMatch = cleaned.match(/(rgba?\([^)]+\)|hsla?\([^)]+\)|#[0-9a-fA-F]{3,8}|oklch\([^)]+\)|oklab\([^)]+\))/)
   const color = toSolidPaint(colorMatch ? colorMatch[1] : "rgba(15, 23, 42, 0.12)")
-  if (!color) {
-    return null
-  }
+  if (!color) return null
 
   const numericValues = []
   const numericMatcher = /-?\d+(\.\d+)?(?=px)/g
-  let numericMatch = numericMatcher.exec(firstShadow)
-  while (numericMatch) {
-    numericValues.push(Number(numericMatch[0]))
-    numericMatch = numericMatcher.exec(firstShadow)
+  let m = numericMatcher.exec(cleaned)
+  while (m) {
+    numericValues.push(Number(m[0]))
+    m = numericMatcher.exec(cleaned)
   }
 
   return {
-    type: "DROP_SHADOW",
+    type: isInset ? "INNER_SHADOW" : "DROP_SHADOW",
     color: {
       r: color.color.r,
       g: color.color.g,
@@ -655,6 +654,95 @@ function parseBoxShadow(value) {
     visible: true,
     blendMode: "NORMAL"
   }
+}
+
+// CSS box-shadow allows a comma-separated list ("0 1px 2px ...,
+// 0 0 0 1px ..."). Return one Figma effect per segment so all of them
+// land on the imported node instead of just the first.
+function parseBoxShadowList(value) {
+  const input = String(value || "").trim()
+  if (!input || input === "none") return []
+  const segments = input.split(/,(?![^(]*\))/)
+  const effects = []
+  for (const segment of segments) {
+    const effect = parseSingleBoxShadow(segment)
+    if (effect) effects.push(effect)
+  }
+  return effects
+}
+
+// Back-compat: old call sites that wanted "is there any shadow at all"
+// still work. Returns the first shadow only (matches old behavior used
+// in hasRenderableBoxStyles).
+function parseBoxShadow(value) {
+  const list = parseBoxShadowList(value)
+  return list.length ? list[0] : null
+}
+
+// CSS filter / backdrop-filter parser: extracts blur(<n>px) so we can
+// emit a Figma LAYER_BLUR / BACKGROUND_BLUR effect. Other filter
+// functions (drop-shadow, brightness, saturate, etc.) aren't supported
+// natively by Figma's effect set; they're ignored.
+function parseBlurEffectsFromFilter(value, type) {
+  const text = String(value || "").trim()
+  if (!text || text === "none") return []
+  const effects = []
+  const blurMatcher = /blur\(\s*(-?\d+(?:\.\d+)?)px\s*\)/g
+  let m = blurMatcher.exec(text)
+  while (m) {
+    const radius = Math.max(0, Number(m[1]))
+    if (radius > 0) {
+      effects.push({
+        type: type,
+        radius: radius,
+        visible: true,
+        blendMode: "NORMAL"
+      })
+    }
+    m = blurMatcher.exec(text)
+  }
+  return effects
+}
+
+function parseDropShadowEffectsFromFilter(value) {
+  const text = String(value || "").trim()
+  if (!text || text === "none") return []
+  const effects = []
+  const matcher = /drop-shadow\(([^)]*(?:\([^)]*\)[^)]*)*)\)/g
+  let m = matcher.exec(text)
+  while (m) {
+    const inner = m[1]
+    const effect = parseSingleBoxShadow(inner)
+    if (effect) {
+      effect.blendMode = "NORMAL"
+      effects.push(effect)
+    }
+    m = matcher.exec(text)
+  }
+  return effects
+}
+
+// CSS mix-blend-mode → Figma blendMode. Figma uses ALL_CAPS_SNAKE_CASE.
+function mapBlendMode(value) {
+  const lookup = {
+    "normal": "NORMAL",
+    "multiply": "MULTIPLY",
+    "screen": "SCREEN",
+    "overlay": "OVERLAY",
+    "darken": "DARKEN",
+    "lighten": "LIGHTEN",
+    "color-dodge": "COLOR_DODGE",
+    "color-burn": "COLOR_BURN",
+    "hard-light": "HARD_LIGHT",
+    "soft-light": "SOFT_LIGHT",
+    "difference": "DIFFERENCE",
+    "exclusion": "EXCLUSION",
+    "hue": "HUE",
+    "saturation": "SATURATION",
+    "color": "COLOR",
+    "luminosity": "LUMINOSITY"
+  }
+  return lookup[String(value || "").trim().toLowerCase()] || null
 }
 
 function hasVisibleBorder(styles) {
@@ -783,6 +871,34 @@ function isAbsolutelyPositioned(child) {
   const styles = child && child.styles ? child.styles : {}
   const position = String(styles.position || "static").trim()
   return position === "absolute" || position === "fixed"
+}
+
+// Stable-sort by CSS z-index so paint order matches the source page.
+// Static-positioned children keep their natural rank (0); positioned
+// children with explicit z-index rise/sink. Negative values go below
+// even static siblings, matching browser behavior closely enough for
+// the cases that matter (decorative overlays vs content).
+function orderChildrenByZIndex(children) {
+  if (!Array.isArray(children) || children.length < 2) return children || []
+  const indexed = children.map(function(child, i) {
+    const styles = (child && child.styles) || {}
+    const position = String(styles.position || "static").trim()
+    const rawZ = styles["z-index"]
+    let z = 0
+    if (rawZ !== undefined && rawZ !== null && rawZ !== "auto" && rawZ !== "") {
+      const parsed = Number(rawZ)
+      if (!Number.isNaN(parsed)) z = parsed
+    }
+    // Only positioned elements actually participate in z-index; static
+    // children stay at 0 regardless of any (invalid) z-index value.
+    if (position === "static") z = 0
+    return { child: child, z: z, originalIndex: i }
+  })
+  indexed.sort(function(a, b) {
+    if (a.z !== b.z) return a.z - b.z
+    return a.originalIndex - b.originalIndex
+  })
+  return indexed.map(function(entry) { return entry.child })
 }
 
 function getLayoutDirection(node) {
@@ -1162,20 +1278,114 @@ function serializeSvgNode(node, isRoot) {
   return "<" + tagName + (attributes ? " " + attributes : "") + ">" + children + "</" + tagName + ">"
 }
 
+// Captured map of CSS custom properties from the source page's :root /
+// body. Populated at the start of importCapturePayload from
+// payload.capture.metadata.cssVariables. Used to resolve var(--name)
+// references in SVG markup, color strings, and any other captured
+// values that still carry CSS variable references.
+var currentCssVariables = {}
+
+// Look up a CSS variable name (e.g. "--geist-background") in the
+// captured map. Returns null when not found so callers can fall back
+// to whatever local value is appropriate.
+function lookupCssVariable(name) {
+  if (!name) return null
+  const key = String(name).trim()
+  if (!key) return null
+  if (Object.prototype.hasOwnProperty.call(currentCssVariables, key)) {
+    return String(currentCssVariables[key])
+  }
+  return null
+}
+
+// Replace every var(--name[, fallback]) reference in `value` with the
+// resolved value from the captured variable map. Falls back to the
+// inline fallback if the variable isn't in the map, then to
+// `defaultValue`. Resolves transitively (a var that points to another
+// var) up to a small recursion limit.
+function resolveCssVarReferences(value, defaultValue) {
+  if (!value) return value
+  let text = String(value)
+  if (text.indexOf("var(") === -1) return text
+
+  let depth = 0
+  while (text.indexOf("var(") !== -1 && depth < 6) {
+    text = text.replace(/var\(\s*(--[^,)]+?)\s*(?:,\s*([^)]+))?\)/g, function(_, name, fb) {
+      const resolved = lookupCssVariable(name)
+      if (resolved && resolved !== "") return resolved
+      const trimmedFb = (fb || "").trim()
+      if (trimmedFb) return trimmedFb
+      return (defaultValue || "").trim() || ""
+    })
+    depth += 1
+  }
+  return text
+}
+
 // Resolve "currentColor" inside an SVG markup string to an actual color
 // value. figma.createNodeFromSvg doesn't run the CSS cascade, so the
 // inherited <color> never resolves and stroked icons render invisibly.
+// var(--name) references go through the captured CSS variable map first
+// (which carries page-level tokens like --geist-background), and only
+// fall through to the inherited color if the variable isn't captured.
 function resolveCurrentColorInSvg(markup, fallbackColor) {
   if (!markup) return markup
   const cssVarFallback = String(fallbackColor || "").trim() || "#ffffff"
-  // Replace currentColor (case-insensitive) and any unresolved
-  // var(--name) references with the supplied fallback. Most page-level
-  // CSS variables won't be available inside the plugin sandbox.
   let result = markup.replace(/currentColor/gi, cssVarFallback)
-  result = result.replace(/var\(\s*--[^,)]+(?:,\s*([^)]+))?\)/g, function(_, fb) {
-    return (fb || cssVarFallback).trim()
-  })
+  result = resolveCssVarReferences(result, cssVarFallback)
   return result
+}
+
+// Walk the captured tree and substitute every var(--name) reference in
+// every style/range/pseudo style object so downstream parsers don't
+// have to know about variables. Done in place — the payload is already
+// a JSON-parsed object owned by the plugin at this point.
+function preResolveCssVarsInTree(node) {
+  if (!node || typeof node !== "object") return
+
+  if (node.styles && typeof node.styles === "object") {
+    for (const key in node.styles) {
+      if (!Object.prototype.hasOwnProperty.call(node.styles, key)) continue
+      const value = node.styles[key]
+      if (typeof value === "string" && value.indexOf("var(") !== -1) {
+        node.styles[key] = resolveCssVarReferences(value, "")
+      }
+    }
+  }
+
+  if (node.pseudo && typeof node.pseudo === "object") {
+    for (const slot of ["before", "after"]) {
+      const pseudoStyles = node.pseudo[slot]
+      if (!pseudoStyles || typeof pseudoStyles !== "object") continue
+      for (const key in pseudoStyles) {
+        if (!Object.prototype.hasOwnProperty.call(pseudoStyles, key)) continue
+        const value = pseudoStyles[key]
+        if (typeof value === "string" && value.indexOf("var(") !== -1) {
+          pseudoStyles[key] = resolveCssVarReferences(value, "")
+        }
+      }
+    }
+  }
+
+  if (Array.isArray(node.ranges)) {
+    for (const range of node.ranges) {
+      if (range && range.styles && typeof range.styles === "object") {
+        for (const key in range.styles) {
+          if (!Object.prototype.hasOwnProperty.call(range.styles, key)) continue
+          const value = range.styles[key]
+          if (typeof value === "string" && value.indexOf("var(") !== -1) {
+            range.styles[key] = resolveCssVarReferences(value, "")
+          }
+        }
+      }
+    }
+  }
+
+  if (Array.isArray(node.children)) {
+    for (const child of node.children) {
+      preResolveCssVarsInTree(child)
+    }
+  }
 }
 
 function buildSvgMarkup(node) {
@@ -1270,8 +1480,28 @@ async function applyVisualStyles(node, captureNode, options, explicitImageUrl) {
   }
 
   if ("effects" in node) {
-    const shadow = parseBoxShadow(styles["box-shadow"])
-    node.effects = shadow ? [shadow] : []
+    const effects = []
+
+    // box-shadow: 0 1px 2px ..., 0 0 0 1px ... → one effect per segment.
+    const shadowList = parseBoxShadowList(styles["box-shadow"])
+    for (const shadow of shadowList) effects.push(shadow)
+
+    // filter: blur(...) drop-shadow(...) → LAYER_BLUR / DROP_SHADOW.
+    for (const e of parseBlurEffectsFromFilter(styles.filter, "LAYER_BLUR")) effects.push(e)
+    for (const e of parseDropShadowEffectsFromFilter(styles.filter)) effects.push(e)
+
+    // backdrop-filter: blur(...) → BACKGROUND_BLUR (Figma's frosted-
+    // glass effect). Other backdrop-filter functions don't have a
+    // direct Figma equivalent.
+    for (const e of parseBlurEffectsFromFilter(styles["backdrop-filter"], "BACKGROUND_BLUR")) effects.push(e)
+
+    node.effects = effects
+  }
+
+  // mix-blend-mode → Figma blendMode on the node itself.
+  if ("blendMode" in node) {
+    const blend = mapBlendMode(styles["mix-blend-mode"])
+    if (blend) node.blendMode = blend
   }
 
   if ("clipsContent" in node) {
@@ -1643,7 +1873,14 @@ async function buildNode(node, inheritedStyles, options, isRoot) {
   const padding = parseBoxValues(node.styles || {}, "padding")
   let fallbackCursorY = padding.top
 
-  for (const child of node.children || []) {
+  // CSS paint order: stable-sort siblings by z-index so children with
+  // higher z-index land on top of children with lower z-index in the
+  // Figma layer panel. Children with `position: static` ignore z-index
+  // (stay at "auto"); positioned children with z-index: <n> rise. Auto
+  // resolves to 0; ties keep DOM order (stable sort).
+  const orderedChildren = orderChildrenByZIndex(node.children || [])
+
+  for (const child of orderedChildren) {
     const childNode = await buildNode(child, mergedStyles, options, false)
     if (!childNode) {
       continue
@@ -1771,6 +2008,20 @@ async function importCapturePayload(rawPayload, importOptions) {
   if (!payload || payload.schema !== "replicode-figma-import" || !payload.capture || !payload.capture.tree) {
     throw new Error("The pasted content is not a valid Replicode Figma payload.")
   }
+
+  // Hydrate the per-import CSS variable map. Walks happen entirely
+  // synchronously in resolveCssVarReferences after this point, so we
+  // don't need to thread the map through every helper.
+  const captureMetadata = (payload.capture && payload.capture.metadata) || {}
+  currentCssVariables = (captureMetadata.cssVariables && typeof captureMetadata.cssVariables === "object")
+    ? captureMetadata.cssVariables
+    : {}
+
+  // Pre-resolve var(--name) references in every captured style string.
+  // This way every downstream helper (parseColor, parseGradientPaint,
+  // parseBoxShadow, etc.) sees concrete values without needing its own
+  // var() handling.
+  preResolveCssVarsInTree(payload.capture.tree)
 
   const root = await buildNode(payload.capture.tree, payload.capture.tree.styles || {}, options, true)
   if (!root) {
