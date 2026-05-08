@@ -3,11 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Replicode Figma Importer</title>
+    <title>Replicode</title>
     <style>
       :root {
         color-scheme: light dark;
         font-family: Inter, "SF Pro Text", system-ui, sans-serif;
+        --brand: #ef4cd4;
+        --brand-hover: #d932bb;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
       }
 
       body {
@@ -17,33 +25,71 @@
       }
 
       .app {
-        display: grid;
-        gap: 12px;
-        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 18px 16px;
       }
 
-      h1 {
-        margin: 0;
-        font-size: 18px;
-        line-height: 1.3;
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
       }
 
-      p {
+      .brand-logo {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        flex: 0 0 auto;
+        display: block;
+      }
+
+      .brand-name {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .instructions {
         margin: 0;
         font-size: 12px;
-        line-height: 1.5;
-        color: var(--figma-color-text-secondary, #475569);
+        line-height: 1.55;
+        color: var(--figma-color-text-secondary, #6b7280);
+      }
+
+      .instructions a {
+        color: var(--brand);
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .instructions a:hover {
+        text-decoration: underline;
+      }
+
+      textarea {
+        min-height: 220px;
+        width: 100%;
+        resize: vertical;
+        border: 1px solid var(--figma-color-border, #dbe1ea);
+        border-radius: 10px;
+        background: var(--figma-color-bg-secondary, #f8fafc);
+        color: inherit;
+        font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        padding: 12px;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px rgba(239, 76, 212, 0.18);
       }
 
       .actions {
         display: grid;
         gap: 8px;
-        grid-template-columns: 1fr 1fr;
-      }
-
-      label {
-        display: grid;
-        gap: 6px;
+        grid-template-columns: 1fr 2fr;
       }
 
       button {
@@ -52,127 +98,143 @@
         background: var(--figma-color-bg-secondary, #ffffff);
         color: inherit;
         font: inherit;
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 600;
         padding: 10px 12px;
         cursor: pointer;
+        transition: background-color 120ms ease, border-color 120ms ease, filter 120ms ease;
+      }
+
+      button:hover {
+        background: var(--figma-color-bg-hover, #f3f4f6);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
 
       button.primary {
-        background: #111827;
-        border-color: #111827;
-        color: white;
+        background: linear-gradient(135deg, var(--brand), #ff9472);
+        border-color: transparent;
+        color: #ffffff;
+        box-shadow: 0 8px 18px rgba(239, 76, 212, 0.22);
       }
 
-      select {
-        border: 1px solid var(--figma-color-border, #dbe1ea);
-        border-radius: 10px;
-        background: var(--figma-color-bg-secondary, #ffffff);
-        color: inherit;
-        font: inherit;
-        font-size: 12px;
-        padding: 10px 12px;
-      }
-
-      textarea {
-        min-height: 260px;
-        width: 100%;
-        resize: vertical;
-        border: 1px solid var(--figma-color-border, #dbe1ea);
-        border-radius: 12px;
-        background: var(--figma-color-bg-secondary, #f8fafc);
-        color: inherit;
-        font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-        padding: 12px;
-        box-sizing: border-box;
+      button.primary:hover:not(:disabled) {
+        filter: brightness(1.06);
       }
 
       .status {
-        min-height: 18px;
+        margin: 0;
+        min-height: 16px;
         font-size: 12px;
-        color: var(--figma-color-text-secondary, #475569);
+        line-height: 1.4;
+        color: var(--figma-color-text-secondary, #6b7280);
       }
 
-      .list {
-        margin: 0;
-        padding-left: 18px;
-        font-size: 12px;
-        line-height: 1.5;
-        color: var(--figma-color-text-secondary, #475569);
+      .status[data-tone="error"] {
+        color: #c2410c;
+      }
+
+      .status[data-tone="success"] {
+        color: #15803d;
+      }
+
+      .status:empty {
+        display: none;
       }
     </style>
   </head>
   <body>
     <main class="app">
-      <header>
-        <h1>Replicode Figma Importer</h1>
-        <p>Use "Copy for Figma" in the Chrome extension, then paste the payload here to create editable Figma layers.</p>
+      <header class="brand">
+        <svg class="brand-logo" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect width="256" height="256" rx="56" fill="#EF4CD4"/>
+          <path d="M128 115.5L188 208.5H155L128 172.5L101 208.5H68L128 115.5Z" fill="white"/>
+          <circle cx="188" cy="67" r="16" fill="white" fill-opacity="0.85"/>
+        </svg>
+        <span class="brand-name">Replicode</span>
       </header>
 
+      <p class="instructions">
+        First extract details using the
+        <a id="extensionLink" href="https://chromewebstore.google.com/detail/fmababdbpbjjmldejdliocbgmdlggfjf?utm_source=item-share-cb" target="_blank" rel="noopener noreferrer">Replicode Chrome extension</a>,
+        then paste the payload below.
+      </p>
+
+      <textarea id="payload" spellcheck="false" placeholder="Paste payload here…"></textarea>
+
       <div class="actions">
-        <button id="pasteClipboard" type="button">Paste clipboard</button>
-        <button id="importPayload" class="primary" type="button">Import to canvas</button>
+        <button id="clearBtn" type="button">Clear</button>
+        <button id="pasteBtn" class="primary" type="button">Paste</button>
       </div>
 
-      <label>
-        <p>Import mode</p>
-        <select id="importMode">
-          <option value="hybrid" selected>Hybrid</option>
-          <option value="accurate">Accurate</option>
-          <option value="editable">Editable</option>
-        </select>
-      </label>
-
-      <textarea id="payload" spellcheck="false" placeholder='Paste the payload from "Copy for Figma" here. Raw JSON capture also works; HTML/CSS export does not.'></textarea>
-
-      <p id="status" class="status">Waiting for a Replicode Figma payload.</p>
-
-      <ul class="list">
-        <li>The importer creates editable frames, text layers, and image placeholders.</li>
-        <li>Auto-layout is inferred where the captured structure looks flex-like.</li>
-        <li>Complex CSS, remote images, and advanced interactions are added as notes, not recreated exactly.</li>
-      </ul>
+      <p id="status" class="status"></p>
     </main>
 
     <script>
       const payloadField = document.getElementById("payload")
       const statusEl = document.getElementById("status")
+      const clearBtn = document.getElementById("clearBtn")
+      const pasteBtn = document.getElementById("pasteBtn")
+      const extensionLink = document.getElementById("extensionLink")
 
-      function setStatus(text) {
-        statusEl.textContent = text
+      function setStatus(text, tone) {
+        statusEl.textContent = text || ""
+        if (tone) {
+          statusEl.dataset.tone = tone
+        } else {
+          delete statusEl.dataset.tone
+        }
       }
 
-      document.getElementById("pasteClipboard").addEventListener("click", async () => {
-        try {
-          const text = await navigator.clipboard.readText()
-          payloadField.value = text
-          setStatus("Clipboard pasted. Review the payload or import it directly.")
-        } catch (error) {
-          setStatus("Clipboard access failed. Paste the payload manually into the textarea.")
-        }
+      // Open the Chrome Web Store link in the user's default browser.
+      // Figma plugins run in an iframe; window.open works for external URLs.
+      extensionLink.addEventListener("click", (event) => {
+        event.preventDefault()
+        window.open(extensionLink.href, "_blank", "noopener,noreferrer")
       })
 
-      document.getElementById("importPayload").addEventListener("click", () => {
-        const payload = payloadField.value.trim()
+      clearBtn.addEventListener("click", () => {
+        payloadField.value = ""
+        payloadField.focus()
+        setStatus("")
+      })
+
+      pasteBtn.addEventListener("click", async () => {
+        let payload = payloadField.value.trim()
+
+        // Empty field? Try the clipboard.
         if (!payload) {
-          setStatus("Paste a Replicode Figma payload first.")
+          try {
+            const fromClipboard = await navigator.clipboard.readText()
+            payloadField.value = fromClipboard
+            payload = fromClipboard.trim()
+          } catch (error) {
+            setStatus("Couldn't read clipboard. Paste manually with ⌘V or Ctrl+V.", "error")
+            return
+          }
+        }
+
+        if (!payload) {
+          setStatus("Paste a Replicode payload first.", "error")
           return
         }
 
         if (payload.startsWith("<!-- component.html -->") || payload.includes("/* styles.css */")) {
-          setStatus('HTML/CSS export detected. In the Chrome extension use "Copy for Figma" instead.')
+          setStatus('That looks like an HTML/CSS export. Use "Copy Figma payload" from the extension.', "error")
           return
         }
 
-        setStatus("Importing capture into the current Figma page...")
+        setStatus("Importing…")
+        pasteBtn.disabled = true
         parent.postMessage(
           {
             pluginMessage: {
               type: "IMPORT_CAPTURE",
               payload,
-              options: {
-                mode: document.getElementById("importMode").value
-              }
+              options: { mode: "hybrid" }
             }
           },
           "*"
@@ -180,12 +242,15 @@
       })
 
       window.onmessage = (event) => {
-        const message = event.data.pluginMessage
+        const message = event.data && event.data.pluginMessage
         if (!message || message.type !== "IMPORT_RESULT") {
           return
         }
-
-        setStatus(message.ok ? `Imported: ${message.detail}` : `Import failed: ${message.detail}`)
+        pasteBtn.disabled = false
+        setStatus(
+          message.ok ? `Imported ${message.detail}` : `Import failed: ${message.detail}`,
+          message.ok ? "success" : "error"
+        )
       }
     </script>
   </body>
