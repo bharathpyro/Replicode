@@ -313,6 +313,83 @@
     writeKiwiString(w, value && value.position)
   }
 
+  // STRUCT FontName { family: string, style: string, postscript: string }
+  function writeFontName(w, v) {
+    writeKiwiString(w, (v && v.family) || "Inter")
+    writeKiwiString(w, (v && v.style) || "Regular")
+    writeKiwiString(w, (v && v.postscript) || "")
+  }
+
+  // STRUCT Number { value: float, units: NumberUnits enum }
+  // NumberUnits: 0 = RAW (e.g. unitless line-height multiplier),
+  //              1 = PIXELS, 2 = PERCENT (treated as auto for line-height
+  //              when value is 0).
+  function writeNumber(w, v) {
+    writeFloat32(w, v && v.value != null ? v.value : 0)
+    writeVarUint(w, v && v.units != null ? v.units | 0 : 0)
+  }
+
+  // MESSAGE TextLine — one entry per visual line. Most of our text fits
+  // on a single line; we still emit a default TextLine because Figma's
+  // wasm validator rejects TextData with no lines. Field IDs from schema:
+  //   [1] lineType: LineType (0 = PLAIN, default)
+  //   [2] styleId: uint (refers into characterStyleIDs / styleOverrideTable)
+  //   [3] indentationLevel: uint
+  //   [4] sourceDirectionality: TextDirection (0 = LTR, default)
+  //   [5] listStartOffset: int
+  //   [6] isFirstLineOfList: bool
+  function writeTextLine(w, v) {
+    if (v && v.lineType) {
+      writeVarUint(w, 1)
+      writeVarUint(w, v.lineType | 0)
+    }
+    if (v && v.styleId) {
+      writeVarUint(w, 2)
+      writeVarUint(w, v.styleId | 0)
+    }
+    if (v && v.indentationLevel) {
+      writeVarUint(w, 3)
+      writeVarUint(w, v.indentationLevel | 0)
+    }
+    if (v && v.sourceDirectionality) {
+      writeVarUint(w, 4)
+      writeVarUint(w, v.sourceDirectionality | 0)
+    }
+    if (v && v.listStartOffset) {
+      writeVarUint(w, 5)
+      writeVarInt(w, v.listStartOffset | 0)
+    }
+    if (v && v.isFirstLineOfList) {
+      writeVarUint(w, 6)
+      writeBool(w, !!v.isFirstLineOfList)
+    }
+    w.writeByte(0)
+  }
+
+  // MESSAGE TextData — Figma's text content envelope.
+  //   [1] characters: string
+  //   [2] characterStyleIDs: uint[]
+  //   [3] styleOverrideTable: StyleOverride[]   (we don't emit overrides;
+  //                                              all chars use base style)
+  //   [4] lines: TextLine[]
+  function writeTextData(w, v) {
+    if (v && v.characters != null) {
+      writeVarUint(w, 1)
+      writeKiwiString(w, v.characters)
+    }
+    if (v && Array.isArray(v.characterStyleIDs) && v.characterStyleIDs.length) {
+      writeVarUint(w, 2)
+      writeVarUint(w, v.characterStyleIDs.length)
+      for (const id of v.characterStyleIDs) writeVarUint(w, id | 0)
+    }
+    if (v && Array.isArray(v.lines) && v.lines.length) {
+      writeVarUint(w, 4)
+      writeVarUint(w, v.lines.length)
+      for (const line of v.lines) writeTextLine(w, line)
+    }
+    w.writeByte(0)
+  }
+
   // MESSAGE Paint — the small subset we emit (SOLID + opacity).
   // Field IDs from schema:
   //   [1] type: PaintType  (SOLID=0, GRADIENT_LINEAR=1, ...)
@@ -400,6 +477,36 @@
       writeVarUint(w, 38)
       writeVarUint(w, n.fillPaints.length)
       for (const p of n.fillPaints) writePaint(w, p)
+    }
+    // Text-only fields (NodeType.TEXT). Captured fixture writes them in
+    // ascending field-id order so we mirror that.
+    if (n.fontSize != null) {
+      writeVarUint(w, 21)
+      writeFloat32(w, n.fontSize)
+    }
+    if (n.textAlignHorizontal != null) {
+      writeVarUint(w, 32)
+      writeVarUint(w, n.textAlignHorizontal | 0)
+    }
+    if (n.textAlignVertical != null) {
+      writeVarUint(w, 33)
+      writeVarUint(w, n.textAlignVertical | 0)
+    }
+    if (n.lineHeight) {
+      writeVarUint(w, 40)
+      writeNumber(w, n.lineHeight)
+    }
+    if (n.fontName) {
+      writeVarUint(w, 41)
+      writeFontName(w, n.fontName)
+    }
+    if (n.textData) {
+      writeVarUint(w, 42)
+      writeTextData(w, n.textData)
+    }
+    if (n.letterSpacing) {
+      writeVarUint(w, 165)
+      writeNumber(w, n.letterSpacing)
     }
     w.writeByte(0) // message terminator
   }
@@ -491,7 +598,9 @@
   //
   // Falls back to the captured fixture if the capture has no usable
   // root metrics, so the writer is never silently no-op.
-  const NODE_TYPE = { DOCUMENT: 1, CANVAS: 2, FRAME: 4 }
+  const NODE_TYPE = { DOCUMENT: 1, CANVAS: 2, FRAME: 4, TEXT: 13 }
+  const TEXT_ALIGN_H = { LEFT: 0, CENTER: 1, RIGHT: 2, JUSTIFIED: 3 }
+  const TEXT_ALIGN_V = { TOP: 0, CENTER: 1, BOTTOM: 2 }
   const NODE_PHASE_CREATED = 0
   const MSG_TYPE_NODE_CHANGES = 1
   const PAINT_TYPE_SOLID = 0
@@ -573,6 +682,120 @@
     }
   }
 
+  // ── Typography helpers ─────────────────────────────────────────────
+  // CSS computed `font-family` values look like:
+  //   `Geist, Arial, "Apple Color Emoji", "Segoe UI Emoji"`
+  // We pull the first non-quoted segment (or strip the quotes from the
+  // first quoted one) as the family Figma should look up.
+  function parseFontFamily(value) {
+    if (typeof value !== "string") return "Inter"
+    const first = value.split(",")[0].trim()
+    if (!first) return "Inter"
+    return first.replace(/^["']|["']$/g, "")
+  }
+
+  // CSS `font-weight` → Figma font style. Figma takes free-form style
+  // names ("Regular", "Bold", "Semi Bold"). Pick a plausible one from
+  // the numeric weight; users can reset post-paste.
+  function fontStyleFromWeight(weight) {
+    const n = Number(weight)
+    if (!isFinite(n)) {
+      const s = String(weight || "").toLowerCase()
+      if (s === "bold") return "Bold"
+      if (s === "lighter") return "Light"
+      return "Regular"
+    }
+    if (n <= 200) return "Thin"
+    if (n <= 300) return "Light"
+    if (n <= 400) return "Regular"
+    if (n <= 500) return "Medium"
+    if (n <= 600) return "Semi Bold"
+    if (n <= 700) return "Bold"
+    if (n <= 800) return "Extra Bold"
+    return "Black"
+  }
+
+  function parsePxNumber(value) {
+    if (typeof value !== "string") return null
+    const m = value.match(/^(-?\d*\.?\d+)/)
+    return m ? parseFloat(m[1]) : null
+  }
+
+  // Build a Figma TEXT NodeChange from a captured text-typed child plus
+  // the typography styles inherited from its parent element.
+  function buildTextNodeChange({ guid, parentGuid, position, parentMetrics, parentStyles, textNode }) {
+    const cm = textNode.metrics || {}
+    const px = (parentMetrics && parentMetrics.x) || 0
+    const py = (parentMetrics && parentMetrics.y) || 0
+    const ps = parentStyles || {}
+
+    const characters = String(textNode.text == null ? "" : textNode.text)
+    const fontSize = parsePxNumber(ps["font-size"]) || 16
+    const fontFamily = parseFontFamily(ps["font-family"])
+    const fontStyle = fontStyleFromWeight(ps["font-weight"])
+    const textColor = parseSolidCssColor(ps.color) || { r: 0, g: 0, b: 0, a: 1 }
+
+    let textAlignH = TEXT_ALIGN_H.LEFT
+    const align = String(ps["text-align"] || "").toLowerCase()
+    if (align === "center") textAlignH = TEXT_ALIGN_H.CENTER
+    else if (align === "right" || align === "end") textAlignH = TEXT_ALIGN_H.RIGHT
+    else if (align === "justify") textAlignH = TEXT_ALIGN_H.JUSTIFIED
+
+    // line-height: CSS computes to a px value. Figma's Number struct
+    // wants units — use PIXELS (1) when we have a concrete px value,
+    // otherwise leave undefined for Figma's default.
+    let lineHeight = null
+    const lh = parsePxNumber(ps["line-height"])
+    if (lh && fontSize && Math.abs(lh - fontSize) > 0.1) {
+      lineHeight = { value: lh, units: 1 }
+    }
+
+    // letter-spacing: usually "normal" or "-2.4px". Convert to PIXELS.
+    let letterSpacing = null
+    const ls = parsePxNumber(ps["letter-spacing"])
+    if (ls && Math.abs(ls) > 0.01) {
+      letterSpacing = { value: ls, units: 1 }
+    }
+
+    return {
+      guid,
+      phase: NODE_PHASE_CREATED,
+      parentIndex: { guid: parentGuid, position },
+      type: NODE_TYPE.TEXT,
+      name: characters.slice(0, 40) || "Text",
+      visible: true,
+      opacity: 1,
+      size: {
+        x: Math.max(1, cm.width || fontSize * Math.max(1, characters.length) * 0.5),
+        y: Math.max(1, cm.height || fontSize * 1.4)
+      },
+      transform: {
+        m00: 1, m01: 0, m02: (cm.x || 0) - px,
+        m10: 0, m11: 1, m12: (cm.y || 0) - py
+      },
+      fontSize,
+      fontName: { family: fontFamily, style: fontStyle, postscript: "" },
+      textAlignHorizontal: textAlignH,
+      textAlignVertical: TEXT_ALIGN_V.TOP,
+      lineHeight: lineHeight,
+      letterSpacing: letterSpacing,
+      textData: {
+        characters,
+        // All characters share styleId=0 (the implicit base style).
+        // Per-character styling (rich-text ranges) lands in a future slice.
+        characterStyleIDs: [],
+        lines: [{ lineType: 0, styleId: 0, indentationLevel: 0, sourceDirectionality: 0, listStartOffset: 0, isFirstLineOfList: false }]
+      },
+      fillPaints: [{
+        type: PAINT_TYPE_SOLID,
+        color: textColor,
+        opacity: 1,
+        visible: true,
+        blendMode: BLEND_NORMAL
+      }]
+    }
+  }
+
   // Decide whether to emit a NodeChange for a capture node and which
   // type tag to use. Today we only emit FRAME nodes; everything else
   // (text, svg, raw text nodes) is skipped so the parent's empty
@@ -602,9 +825,35 @@
   // `parentMetrics` is in absolute viewport coords; child frames get
   // transform.m02/m12 = childMetrics - parentMetrics so positioning
   // matches the source page.
+  //
+  // Each child is one of:
+  //   - text-typed (`{type: "text", text, ranges, metrics}`) → emit as
+  //     a Figma TEXT node, pulling typography from the PARENT element's
+  //     styles (capture text nodes don't carry styles of their own).
+  //   - element-typed with non-zero metrics → emit as a FRAME and recurse.
+  //   - SVG / zero-area / other → skipped (later phases).
   function emitChildren(state, parent, parentMetrics) {
-    const children = (parent.children || []).filter(nodeTypeForCapture)
-    children.forEach((child, index) => {
+    const rawChildren = parent.children || []
+    let position = 0
+    for (const child of rawChildren) {
+      if (!child) continue
+
+      // Text child → TEXT NodeChange.
+      if (child.type === "text" && child.text != null && child.text !== "") {
+        const guid = { sessionID: CONTENT_SESSION_ID, localID: state.nextLocalId++ }
+        state.nodeChanges.push(buildTextNodeChange({
+          guid,
+          parentGuid: state.parentGuidStack[state.parentGuidStack.length - 1],
+          position: lexoRankAt(position++),
+          parentMetrics,
+          parentStyles: parent.styles,
+          textNode: child
+        }))
+        continue
+      }
+
+      // Element child with usable metrics → FRAME NodeChange + recurse.
+      if (!nodeTypeForCapture(child)) continue
       const guid = { sessionID: CONTENT_SESSION_ID, localID: state.nextLocalId++ }
       const cm = child.metrics
       const px = (parentMetrics && parentMetrics.x) || 0
@@ -617,7 +866,7 @@
       state.nodeChanges.push({
         guid,
         phase: NODE_PHASE_CREATED,
-        parentIndex: { guid: state.parentGuidStack[state.parentGuidStack.length - 1], position: lexoRankAt(index) },
+        parentIndex: { guid: state.parentGuidStack[state.parentGuidStack.length - 1], position: lexoRankAt(position++) },
         type: NODE_TYPE.FRAME,
         name: child.label || child.tag || "Frame",
         visible: true,
@@ -629,7 +878,7 @@
       state.parentGuidStack.push(guid)
       emitChildren(state, child, cm)
       state.parentGuidStack.pop()
-    })
+    }
   }
 
   function buildSceneFromCapture(capture, pasteID) {
