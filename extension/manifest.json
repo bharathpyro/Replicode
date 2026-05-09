@@ -40,6 +40,12 @@
       "run_at": "document_idle",
       "all_frames": true,
       "match_about_blank": true
+    },
+    {
+      "matches": ["https://*.figma.com/*", "https://figma.com/*", "https://*.figjam.com/*"],
+      "js": ["figma-page-interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ]
 }
