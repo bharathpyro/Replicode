@@ -619,8 +619,62 @@
   // Returns the `text/html` clipboard string the Figma button should
   // copy, or null if synthesis isn't possible for this capture (caller
   // falls back to the JSON-for-plugin path).
+  // Diagnostic mode: instead of synthesising a scene from the
+  // capture, ship the captured Figma fixture verbatim — same scene
+  // bytes Figma's own clipboard wrote, same figmeta values. Used
+  // to bisect "Invalid clipboard contents" failures: if the fixture
+  // round-trip pastes cleanly, our wrapper/schema/zstd is fine and
+  // the bug is in the scene encoder; if it still fails, the bug is
+  // in the wrapper or the embedded schema chunk drifted from
+  // Figma's current build.
+  //
+  // Captured figmeta values (from figma breakdown/figma-write-text_html.bin):
+  //   pasteID: 352842067
+  //   selectedNodeData: "10:5|4|0"
+  //   environment: "www.figma.com"
+  //   fileKey: "s0f8nHeiYzvUfPOGqFZtx2"
+  function buildFixtureFigmaClipboardHtml() {
+    // The fixture's scene chunk is already zstd-compressed (in the
+    // original capture). We don't have the raw scene Message bytes
+    // to re-frame; the embedded `SCENE_FIXTURE_B64` IS the inflated
+    // scene Message. So we have to re-compress it. Use our
+    // store-only zstd raw frame — same as the synth path.
+    const scene = getSceneFixture()
+    const sceneFrame = buildZstdRawFrame(scene)
+    const container = buildKiwiContainer(getSchemaChunk(), sceneFrame)
+    const figmeta = {
+      fileKey: "s0f8nHeiYzvUfPOGqFZtx2",
+      pasteID: 352842067,
+      dataType: "scene",
+      environment: "www.figma.com",
+      selectedNodeData: "10:5|4|0"
+    }
+    return buildHtmlEnvelope(figmeta, container, "ab")
+  }
+
   function buildFigmaClipboardHtml(capture, options) {
     options = options || {}
+
+    // Diagnostic short-circuit: opt in via options.fixture or by
+    // setting localStorage.replicodeFigmaFixture = "on". Useful for
+    // bisecting paste rejections — see buildFixtureFigmaClipboardHtml
+    // above.
+    let useFixture = !!(options && options.fixture)
+    if (!useFixture) {
+      try {
+        useFixture = window.localStorage &&
+          window.localStorage.getItem("replicodeFigmaFixture") === "on"
+      } catch (_) { /* localStorage might be unavailable */ }
+    }
+    if (useFixture) {
+      try {
+        return buildFixtureFigmaClipboardHtml()
+      } catch (err) {
+        console.warn("[replicode] fixture mode failed:", err)
+        // Fall through to normal synthesis.
+      }
+    }
+
     // Single source of truth for pasteID — used by BOTH the figmeta
     // JSON (so Figma can match it for paste deduplication) AND the
     // top-level Message (field 12). Mismatched values cause Figma
@@ -699,6 +753,7 @@
 
     // High-level entry point used by the Figma button.
     buildFigmaClipboardHtml,
+    buildFixtureFigmaClipboardHtml,
 
     // Sanity probe — returns true once the writer is ready to attempt
     // a clipboard payload. Currently always true because we ship a
