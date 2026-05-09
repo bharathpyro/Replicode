@@ -405,27 +405,32 @@
   }
 
   // MESSAGE Message — the top-level scene envelope. Field IDs:
-  //   [1] type: MessageType
-  //   [2] sessionID: uint
-  //   [3] ackID: uint
-  //   [4] nodeChanges: NodeChange[]
+  //   [1]  type: MessageType
+  //   [2]  sessionID: uint
+  //   [3]  ackID: uint
+  //   [4]  nodeChanges: NodeChange[]
   //   [12] pasteID: int  (zig-zag) — must match figmeta.pasteID
   //   [14] pasteFileKey: string
   //   [19] pasteIsPartiallyOutsideEnclosingFrame: bool
   //   [20] pastePageId: GUID  (zero = "Figma resolves on paste")
   //   [21] isCut: bool
+  //   [27] pasteEditorType: EditorType
+  //   [29] publishedAssetGuids: GUID[]
+  //   [33] clipboardSelectionRegions: ClipboardSelectionRegion[]
+  //   [41] pasteAssetType: PasteAssetType
+  //
+  // Field-emission order mirrors the captured Figma fixture exactly
+  // (nodeChanges LAST), even though kiwi is officially order-
+  // independent. Empirically Figma's wasm decoder seemed sensitive to
+  // missing or out-of-order top-level fields when "Failed to load
+  // scene" started firing.
   function writeMessage(w, m) {
     writeVarUint(w, 1)
-    writeVarUint(w, m.type | 0) // 1 = NODE_CHANGES
+    writeVarUint(w, m.type | 0)
     writeVarUint(w, 2)
     writeVarUint(w, (m.sessionID | 0) >>> 0)
     writeVarUint(w, 3)
     writeVarUint(w, (m.ackID | 0) >>> 0)
-    if (m.nodeChanges && m.nodeChanges.length) {
-      writeVarUint(w, 4)
-      writeVarUint(w, m.nodeChanges.length)
-      for (const n of m.nodeChanges) writeNodeChange(w, n)
-    }
     if (m.pasteID != null) {
       writeVarUint(w, 12)
       writeVarInt(w, m.pasteID | 0)
@@ -436,13 +441,36 @@
     }
     writeVarUint(w, 19)
     writeBool(w, !!m.pasteIsPartiallyOutsideEnclosingFrame)
-    // pastePageId — zero GUID asks Figma to resolve to the active
-    // page. Mirrors how Figma's own pastes look when they don't carry
-    // a specific destination page.
+    // pastePageId — captured fixture uses the SOURCE Canvas's GUID
+    // (0, 1), not zero. Figma's wasm decoder may fail "Failed to load
+    // scene" if pastePageId points to a GUID that isn't in the scene's
+    // nodeChanges. (0, 1) IS in our scene (the Canvas) so this links
+    // the paste back to a real node.
     writeVarUint(w, 20)
-    writeGUID(w, m.pastePageId || { sessionID: 0, localID: 0 })
+    writeGUID(w, m.pastePageId || CANVAS_GUID)
     writeVarUint(w, 21)
     writeBool(w, !!m.isCut)
+    // pasteEditorType: 0 = DESIGN (the only editor type relevant here).
+    writeVarUint(w, 27)
+    writeVarUint(w, (m.pasteEditorType | 0) >>> 0)
+    // publishedAssetGuids[]: empty array in captured fixture; we mirror.
+    writeVarUint(w, 29)
+    writeVarUint(w, 0) // count = 0
+    // clipboardSelectionRegions[]: captured fixture has 1 entry with
+    // selection metadata. Empty should be safe — Figma's spec calls
+    // these "selection metadata for paste-in-place" which is optional.
+    writeVarUint(w, 33)
+    writeVarUint(w, 0) // count = 0
+    // pasteAssetType: 0 = default. Captured fixture sets this.
+    writeVarUint(w, 41)
+    writeVarUint(w, (m.pasteAssetType | 0) >>> 0)
+    // nodeChanges LAST — captured fixture emits them last and Figma's
+    // decoder expects this ordering.
+    if (m.nodeChanges && m.nodeChanges.length) {
+      writeVarUint(w, 4)
+      writeVarUint(w, m.nodeChanges.length)
+      for (const n of m.nodeChanges) writeNodeChange(w, n)
+    }
     w.writeByte(0)
   }
 
