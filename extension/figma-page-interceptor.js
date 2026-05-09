@@ -125,9 +125,72 @@
     }
   }, true)
 
+  // ── Listen on paste events (diagnose Replicode→Figma round-trip) ──
+  // When the user ⌘V's into Figma, the browser fires a `paste` event
+  // before Figma's own handler. We log every MIME type Figma sees
+  // and try to extract the (figma) base64 block. If our writer's
+  // payload survives Chrome's clipboard sanitization, the bytes here
+  // will start with "fig-kiwi". If they don't, Chrome mangled the
+  // HTML in transit.
+  document.addEventListener("paste", (event) => {
+    if (!event.clipboardData) return
+    try {
+      console.log(
+        "[replicode] PASTE event — types:", event.clipboardData.types,
+        "target:", event.target && (event.target.tagName + (event.target.id ? "#" + event.target.id : ""))
+      )
+      for (const t of event.clipboardData.types) {
+        const data = event.clipboardData.getData(t)
+        if (!data) continue
+        window[STORE_KEY]["pasteEvent_" + t] = data
+        console.log(
+          "[replicode] paste " + t + " —", data.length, "chars/bytes; first 400:",
+          data.slice(0, 400)
+        )
+        if (t === "text/html") {
+          const meta = data.match(/<!--\(figmeta\)([A-Za-z0-9+/=]+)\(\/figmeta\)-->/i)
+          const buf = data.match(/<!--\(figma\)([A-Za-z0-9+/=]+)\(\/figma\)-->/i)
+          if (meta) {
+            try {
+              const j = JSON.parse(atob(meta[1]))
+              console.log("[replicode] paste figmeta:", j)
+            } catch (err) {
+              console.warn("[replicode] paste figmeta decode failed:", err.message)
+            }
+          } else {
+            console.warn("[replicode] paste text/html does NOT contain a (figmeta) block — Chrome may have stripped the comment")
+          }
+          if (buf) {
+            try {
+              const decoded = atob(buf[1])
+              const bytes = new Uint8Array(decoded.length)
+              for (let j = 0; j < decoded.length; j += 1) bytes[j] = decoded.charCodeAt(j)
+              window[STORE_KEY].__paste_decoded = bytes
+              const head = String.fromCharCode.apply(null, bytes.slice(0, 8))
+              console.log(
+                "[replicode] paste figma block —", bytes.length,
+                "bytes; magic:", JSON.stringify(head),
+                "first 32 hex:", hexHead(bytes, 32)
+              )
+              downloadBytes("figma-paste-received.bin", bytes)
+            } catch (err) {
+              console.warn("[replicode] paste figma block decode failed:", err.message)
+            }
+          } else {
+            console.warn("[replicode] paste text/html does NOT contain a (figma) block — Chrome may have stripped the comment")
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[replicode] paste listener error:", err.message)
+    }
+  }, true)
+
   console.log(
     "[replicode] Figma clipboard interceptor armed. Press ⌘C on a selection — " +
-    "captured payloads will be logged + downloaded. window." + STORE_KEY +
-    " holds the latest set."
+    "captured payloads will be logged + downloaded. ⌘V (paste) is also " +
+    "intercepted now: paste events are logged + the figma block is " +
+    "extracted and downloaded as figma-paste-received.bin. window." +
+    STORE_KEY + " holds the latest set."
   )
 })()
