@@ -392,13 +392,21 @@
 
   // ── 9. Synthesise a scene from a Replicode capture ────────────────
   //
-  // Builds the chain Document → Canvas → root Frame (sized to match
-  // the capture's root rect, white fill). Per-child encoding is left
-  // for the next iteration — this ships a known-good empty-Frame
-  // paste so users can validate the round-trip on their own captures.
+  // Walks the capture tree and emits a flat NodeChange[] in document
+  // order:
+  //   - Document (root of the scene graph, no parent)
+  //   - Canvas  (the synthetic "Page 1" the frame lives on)
+  //   - root Frame (sized to capture.tree.metrics)
+  //   - one child Frame per descendant element, with transform.m02/m12
+  //     translated relative to the parent's metrics so layout matches
+  //     the captured page
   //
-  // Falls back to the captured fixture if the capture tree is missing
-  // a root, so the writer is never silently no-op.
+  // Skipped for now (silently — these become regular empty frames):
+  //   - SVG nodes (vector path encoding lands in the next slice)
+  //   - text-typed nodes (need fontName + textData, separate work)
+  //
+  // Falls back to the captured fixture if the capture has no usable
+  // root metrics, so the writer is never silently no-op.
   const NODE_TYPE = { DOCUMENT: 1, CANVAS: 2, FRAME: 4 }
   const NODE_PHASE_CREATED = 0
   const MSG_TYPE_NODE_CHANGES = 1
@@ -411,74 +419,183 @@
     const tree = capture && capture.tree
     if (!tree) return null
     const m = tree.metrics || {}
-    // Replicode metrics use { width, height }; fall back to a
-    // sensible default if those weren't captured.
     const w = Number(m.width) || 320
     const h = Number(m.height) || 200
     return { width: Math.max(1, w), height: Math.max(1, h) }
+  }
+
+  // LexoRank-shaped sibling ordering: child 0 -> "!", child 1 -> "!!",
+  // child 2 -> "!!!", … Strictly increasing under lexical comparison
+  // (shared prefix, the longer string sorts after the shorter one),
+  // which is all Figma needs to preserve sibling order.
+  function lexoRankAt(index) {
+    return "!".repeat((index | 0) + 1)
+  }
+
+  // CSS color parsing — only what we need to seed a Frame's fillPaints
+  // from styles.background-color. Returns a kiwi-shaped {r,g,b,a} in
+  // 0..1 range, or null if the value isn't a recognised solid color.
+  function parseSolidCssColor(value) {
+    if (typeof value !== "string") return null
+    const trimmed = value.trim()
+    if (!trimmed || trimmed === "transparent" || trimmed === "none") return null
+    let r, g, b, a = 1
+    const hex = trimmed.match(/^#([0-9a-f]{3,8})$/i)
+    if (hex) {
+      const h = hex[1]
+      if (h.length === 3 || h.length === 4) {
+        r = parseInt(h[0] + h[0], 16) / 255
+        g = parseInt(h[1] + h[1], 16) / 255
+        b = parseInt(h[2] + h[2], 16) / 255
+        if (h.length === 4) a = parseInt(h[3] + h[3], 16) / 255
+      } else if (h.length === 6 || h.length === 8) {
+        r = parseInt(h.slice(0, 2), 16) / 255
+        g = parseInt(h.slice(2, 4), 16) / 255
+        b = parseInt(h.slice(4, 6), 16) / 255
+        if (h.length === 8) a = parseInt(h.slice(6, 8), 16) / 255
+      } else {
+        return null
+      }
+      return { r, g, b, a }
+    }
+    const rgba = trimmed.match(/^rgba?\(([^)]+)\)$/i)
+    if (rgba) {
+      const parts = rgba[1].split(/[,/\s]+/).filter(Boolean)
+      if (parts.length < 3) return null
+      r = parseFloat(parts[0]) / 255
+      g = parseFloat(parts[1]) / 255
+      b = parseFloat(parts[2]) / 255
+      if (parts.length >= 4) {
+        const aRaw = parts[3]
+        a = aRaw.endsWith("%") ? parseFloat(aRaw) / 100 : parseFloat(aRaw)
+      }
+      if ([r, g, b, a].some((n) => Number.isNaN(n))) return null
+      return { r, g, b, a }
+    }
+    return null
+  }
+
+  function fillFromStyles(styles) {
+    if (!styles) return null
+    const bg = styles["background-color"] || styles.backgroundColor
+    const color = parseSolidCssColor(bg)
+    if (!color || color.a === 0) return null
+    return {
+      type: PAINT_TYPE_SOLID,
+      color,
+      opacity: 1,
+      visible: true,
+      blendMode: BLEND_NORMAL
+    }
+  }
+
+  // Decide whether to emit a NodeChange for a capture node and which
+  // type tag to use. Today we only emit FRAME nodes; everything else
+  // (text, svg, raw text nodes) is skipped so the parent's empty
+  // frame still pastes cleanly. Returns null to skip.
+  function nodeTypeForCapture(node) {
+    if (!node) return null
+    if (node.svgInnerMarkup) return null // vectors land in a later slice
+    if (node.type && node.type !== "element") return null // raw text runs
+    if (!node.metrics) return null
+    if (!node.metrics.width || !node.metrics.height) return null
+    return NODE_TYPE.FRAME
+  }
+
+  // Recursively emit child NodeChange records under `parentGuid`.
+  // `parentMetrics` is in absolute viewport coords; child frames get
+  // transform.m02/m12 = childMetrics - parentMetrics so positioning
+  // matches the source page.
+  function emitChildren(state, parent, parentMetrics) {
+    const children = (parent.children || []).filter(nodeTypeForCapture)
+    children.forEach((child, index) => {
+      const guid = { sessionID: 0, localID: state.nextLocalId++ }
+      const cm = child.metrics
+      const px = (parentMetrics && parentMetrics.x) || 0
+      const py = (parentMetrics && parentMetrics.y) || 0
+      const transform = {
+        m00: 1, m01: 0, m02: cm.x - px,
+        m10: 0, m11: 1, m12: cm.y - py
+      }
+      const fill = fillFromStyles(child.styles)
+      state.nodeChanges.push({
+        guid,
+        phase: NODE_PHASE_CREATED,
+        parentIndex: { guid: state.parentGuidStack[state.parentGuidStack.length - 1], position: lexoRankAt(index) },
+        type: NODE_TYPE.FRAME,
+        name: child.label || child.tag || "Frame",
+        size: { x: Math.max(1, cm.width), y: Math.max(1, cm.height) },
+        transform,
+        fillPaints: fill ? [fill] : []
+      })
+      state.parentGuidStack.push(guid)
+      emitChildren(state, child, cm)
+      state.parentGuidStack.pop()
+    })
   }
 
   function buildSceneFromCapture(capture) {
     const root = pickRootRect(capture)
     if (!root) return getSceneFixture()
 
+    const tree = capture.tree
     const docGuid = { sessionID: 0, localID: 1 }
     const canvasGuid = { sessionID: 0, localID: 2 }
-    const frameGuid = { sessionID: 0, localID: 3 }
+    const rootGuid = { sessionID: 0, localID: 3 }
 
-    const rootName =
-      (capture && capture.tree && (capture.tree.name || capture.tree.tag)) || "Frame"
+    const rootName = (tree.label || tree.name || tree.tag) || "Frame"
+    const rootFill = fillFromStyles(tree.styles) || {
+      type: PAINT_TYPE_SOLID,
+      color: SOLID_WHITE,
+      opacity: 1,
+      visible: true,
+      blendMode: BLEND_NORMAL
+    }
 
-    const nodeChanges = [
-      // Document — root of the scene graph. No parentIndex.
-      {
-        guid: docGuid,
-        phase: NODE_PHASE_CREATED,
-        type: NODE_TYPE.DOCUMENT,
-        name: "Document"
-      },
-      // Page (Canvas) — direct child of the document.
-      {
-        guid: canvasGuid,
-        phase: NODE_PHASE_CREATED,
-        parentIndex: { guid: docGuid, position: "!" },
-        type: NODE_TYPE.CANVAS,
-        name: "Page 1"
-      },
-      // The actual paste payload: a single Frame sized to the capture
-      // root, white fill. Children land in a future iteration.
-      {
-        guid: frameGuid,
-        phase: NODE_PHASE_CREATED,
-        parentIndex: { guid: canvasGuid, position: "!" },
-        type: NODE_TYPE.FRAME,
-        name: rootName,
-        size: { x: root.width, y: root.height },
-        transform: IDENTITY_TRANSFORM,
-        fillPaints: [
-          {
-            type: PAINT_TYPE_SOLID,
-            color: SOLID_WHITE,
-            opacity: 1,
-            visible: true,
-            blendMode: BLEND_NORMAL
-          }
-        ]
-      }
-    ]
+    const state = {
+      nextLocalId: 4,
+      parentGuidStack: [rootGuid],
+      nodeChanges: [
+        {
+          guid: docGuid,
+          phase: NODE_PHASE_CREATED,
+          type: NODE_TYPE.DOCUMENT,
+          name: "Document"
+        },
+        {
+          guid: canvasGuid,
+          phase: NODE_PHASE_CREATED,
+          parentIndex: { guid: docGuid, position: "!" },
+          type: NODE_TYPE.CANVAS,
+          name: "Page 1"
+        },
+        {
+          guid: rootGuid,
+          phase: NODE_PHASE_CREATED,
+          parentIndex: { guid: canvasGuid, position: "!" },
+          type: NODE_TYPE.FRAME,
+          name: rootName,
+          size: { x: root.width, y: root.height },
+          transform: IDENTITY_TRANSFORM,
+          fillPaints: [rootFill]
+        }
+      ]
+    }
+
+    emitChildren(state, tree, tree.metrics || { x: 0, y: 0 })
 
     const message = {
       type: MSG_TYPE_NODE_CHANGES,
       sessionID: 0,
       ackID: 0,
-      nodeChanges,
+      nodeChanges: state.nodeChanges,
       pasteID: (Math.random() * 0x7fffffff) | 0,
       pasteFileKey: "replicode-extension",
       pasteIsPartiallyOutsideEnclosingFrame: false,
       isCut: false
     }
 
-    const w = createByteWriter(512)
+    const w = createByteWriter(1024)
     writeMessage(w, message)
     return w.toUint8Array()
   }
