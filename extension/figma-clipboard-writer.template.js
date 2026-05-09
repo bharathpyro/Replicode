@@ -81,10 +81,31 @@
     writeVarUint(w, ((n << 1) ^ (n >> 31)) >>> 0)
   }
   function writeBool(w, value) { w.writeByte(value ? 0x01 : 0x00) }
+
+  // Kiwi floats are bit-rotated to push the IEEE 754 exponent into the
+  // low byte, then written variable-length: a single 0x00 if every byte
+  // would be zero (i.e. the value is 0.0), otherwise 4 bytes of the
+  // rotated form little-endian. Reference:
+  //   https://github.com/evanw/kiwi/blob/master/cpp/kiwi.h#L52 (writeFloat)
+  // For example, 1.0f (IEEE 0x3F800000) rotates to 0x0000007F → bytes
+  //   0x7F 0x00 0x00 0x00. Plain IEEE LE would write 0x00 0x00 0x80 0x3F
+  //   instead — that's the bug Figma's wasm decoder was rejecting.
+  const _floatBuf = new ArrayBuffer(4)
+  const _floatView = new DataView(_floatBuf)
   function writeFloat32(w, value) {
-    const ab = new ArrayBuffer(4)
-    new DataView(ab).setFloat32(0, Number(value) || 0, true)
-    w.writeBytes(new Uint8Array(ab))
+    _floatView.setFloat32(0, Number(value) || 0, true)
+    const bits = _floatView.getUint32(0, true) >>> 0
+    // Rotate right 23: equivalent to (bits >> 23) | (bits << 9) on
+    // unsigned 32-bit. Done as two unsigned shifts + OR.
+    const rotated = ((bits >>> 23) | ((bits << 9) >>> 0)) >>> 0
+    if (rotated === 0) {
+      w.writeByte(0)
+      return
+    }
+    w.writeByte(rotated & 0xff)
+    w.writeByte((rotated >>> 8) & 0xff)
+    w.writeByte((rotated >>> 16) & 0xff)
+    w.writeByte((rotated >>> 24) & 0xff)
   }
   function writeKiwiString(w, value) {
     // Kiwi strings are null-terminated UTF-8.
@@ -211,23 +232,38 @@
   //   <!--(figmeta)…base64 JSON metadata…(/figmeta)-->
   //   <!--(figma)…base64 kiwi container…(/figma)-->
   //
-  // Plus a trailing <span> that acts as a paste-as-text fallback.
+  // Critical detail learned the hard way: Chrome's clipboard write
+  // sanitiser COLLAPSES two adjacent EMPTY <span> elements into a
+  // single <span> with merged attributes. If we emit:
+  //   <span data-metadata="X"></span><span data-buffer="Y"></span>
+  // … Chrome's sanitiser turns it into:
+  //   <span data-metadata="X" data-buffer="Y"></span>
+  // which Figma's wasm parser then rejects as "Invalid clipboard
+  // contents" because its regex expects them on separate spans.
+  //
+  // Fix: give the data-buffer span non-empty content so Chrome can't
+  // collapse it. Use the plain-text fallback as that content (and as
+  // the trailing fallback span Figma emits for paste-into-rich-text
+  // targets).
   function buildHtmlEnvelope(figmetaJson, figmaContainerBytes, plainText) {
     const figmetaB64 = base64Encode(new TextEncoder().encode(JSON.stringify(figmetaJson)))
     const figmaB64 = base64Encode(figmaContainerBytes)
-    const escapedText = String(plainText || "")
+    const rawText = String(plainText == null ? "" : plainText)
+    const escapedText = rawText
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
+    // The data-buffer span MUST have content (not just whitespace
+    // either — Chrome's sanitiser also strips that). A non-breaking
+    // space is enough to prevent collapse and is invisible when the
+    // payload is pasted into a rich-text target.
+    const bufferContent = escapedText || "&nbsp;"
     return [
       `<meta charset="utf-8">`,
       `<div>`,
       `<span data-metadata="<!--(figmeta)${figmetaB64}(/figmeta)-->"></span>`,
-      `<span data-buffer="<!--(figma)${figmaB64}(/figma)-->"></span>`,
-      `</div>`,
-      escapedText
-        ? `<span><span style="font-size: 12px; white-space: pre-wrap;">${escapedText}</span></span>`
-        : ""
+      `<span data-buffer="<!--(figma)${figmaB64}(/figma)-->">${bufferContent}</span>`,
+      `</div>`
     ].join("")
   }
 
