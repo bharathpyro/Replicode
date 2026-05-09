@@ -508,7 +508,7 @@
             </svg>
             <span data-role="code-label">Code</span>
           </button>
-          <button type="button" class="ui-extractor-hud-button" data-action="copy-figma" title="Copy Figma plugin payload (editable auto-layout, requires plugin)" disabled>
+          <button type="button" class="ui-extractor-hud-button" data-action="copy-figma" title="Copy as Figma — paste directly into a Figma file, no plugin needed" disabled>
             <svg class="ui-extractor-hud-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -804,16 +804,24 @@
     overlayRoot && (overlayRoot.style.display = "none")
   }
 
-  // Copy the JSON payload that the Replicode Figma plugin imports.
-  // This is the high-fidelity path: the plugin reconstructs the
-  // capture as proper Figma nodes — auto-layout frames sized to match
-  // the source, text layers with character-range styling for inline
-  // colored spans, native vector icons, gradient fills, multi-layer
-  // shadows. The trade-off is that the user needs the plugin
-  // installed; we kept SVG paste as a fallback in the exporter
-  // (window.ReplicodeFigmaExport.buildPasteableSvg) for the no-plugin
-  // case but it produces absolute-positioned layers, not editable
-  // auto-layout.
+  // Copy a Figma-paste-ready clipboard payload.
+  //
+  // Preferred path (no plugin needed): synthesise the same text/html
+  // wrapper Figma's web app writes when you ⌘C a frame — base64 kiwi
+  // scene graph + figmeta JSON inside HTML comments. Pasting into a
+  // Figma file reconstructs the capture as native auto-layout frames,
+  // text with character-range styling, gradients, etc. Needs no plugin
+  // install. Implemented in extension/figma-clipboard-writer.js.
+  //
+  // Fallback path: write the JSON payload the Replicode Figma plugin
+  // imports. Always works (no native paste roundtrip required), but
+  // requires the user to have the plugin installed.
+  //
+  // The fallback fires when:
+  //   - the writer module isn't available (script load failed)
+  //   - the writer throws while building the payload
+  //   - navigator.clipboard.write rejects (permission denied,
+  //     non-secure context, browser support gap)
   async function copyFigmaPayloadFromHud() {
     if (!copyFigmaButton) {
       return
@@ -844,6 +852,30 @@
         return
       }
 
+      // 1. Native-paste path. Best effort: if anything fails, fall through
+      //    to the plugin JSON path below.
+      const writer = exporter.figmaClipboard
+      if (writer && writer.isReady && writer.isReady()) {
+        let html = null
+        try {
+          html = writer.buildFigmaClipboardHtml(capture)
+        } catch (err) {
+          console.warn("[replicode] figma clipboard writer threw, falling back to plugin JSON:", err)
+        }
+        if (html) {
+          const wrote = await writeFigmaClipboardHtml(html)
+          if (wrote) {
+            labelEl.textContent = "Copied"
+            updateStatus("Figma scene copied. Switch to Figma and press ⌘V — no plugin needed.")
+            window.setTimeout(() => {
+              if (copyFigmaButton) restore()
+            }, 1800)
+            return
+          }
+        }
+      }
+
+      // 2. Fallback: plugin JSON. Always-available, requires the plugin.
       const payload = exporter.generateImportJson(capture)
       if (!payload) {
         updateStatus("Could not prepare the Figma payload for this capture.")
@@ -855,7 +887,7 @@
       labelEl.textContent = copied ? "Copied" : "Failed"
       updateStatus(
         copied
-          ? "Figma payload copied. Paste it into the Replicode Figma plugin to get editable layers."
+          ? "Native paste unavailable — copied plugin JSON instead. Paste into the Replicode Figma plugin."
           : "Copy failed. Try again or open the side panel."
       )
       window.setTimeout(() => {
@@ -866,6 +898,27 @@
     } catch (error) {
       updateStatus(`Could not copy the Figma payload: ${error?.message || error}`)
       restore()
+    }
+  }
+
+  // Write a Figma-paste-ready text/html ClipboardItem. Returns true on
+  // success. We intentionally pass ONLY text/html — Figma's paste handler
+  // prefers text/html over text/plain when both are present, and there's
+  // no upside to also writing a parallel plain-text payload (the JSON-
+  // for-plugin path is mutually exclusive with the native paste path).
+  async function writeFigmaClipboardHtml(html) {
+    try {
+      if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
+        return false
+      }
+      const item = new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" })
+      })
+      await navigator.clipboard.write([item])
+      return true
+    } catch (err) {
+      console.warn("[replicode] navigator.clipboard.write failed:", err)
+      return false
     }
   }
 
