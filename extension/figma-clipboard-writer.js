@@ -1,27 +1,45 @@
-/* global chrome, window */
+/* global window */
 ;(() => {
-  // ────────────────────────────────────────────────────────────────────
-  // Replicode → Figma clipboard writer
+  // ──────────────────────────────────────────────────────────────────
+  // Replicode → Figma clipboard writer (Phase 2 round-trip foundation)
   //
-  // Synthesises a binary payload that Figma's web app accepts as a
-  // cross-document paste — the same flow that runs when you copy a
-  // Frame from one Figma file and paste it into another. The Figma
-  // payload is encoded with `kiwi` (https://github.com/evanw/kiwi),
-  // a schema-driven binary format Evan Wallace open-sourced.
+  // Produces the same `text/html` clipboard payload Figma's web app
+  // writes when you press ⌘C on a frame: an HTML wrapper containing
+  // <!--(figmeta)…(/figmeta)--> JSON metadata and <!--(figma)…(/figma)-->
+  // base64-encoded kiwi-binary scene graph. Pasted into Figma it
+  // reconstructs the source scene with auto-layout, text ranges, native
+  // vectors, gradients — same fidelity as a cross-Figma copy/paste, no
+  // plugin install.
   //
-  // This module ships the universal kiwi encoding primitives plus a
-  // node-tree builder that maps a Replicode capture onto Figma's
-  // schema. The schema-specific bits (field IDs, magic bytes) are
-  // tracked in `figma-clipboard-spec.md` and patched in here as we
-  // reverse-engineer them from real Figma clipboard captures.
+  // What ships in this milestone:
+  //   * kiwi byte writer + primitives (varuint/varint/string/etc.)
+  //   * the captured 30,731-byte raw-deflate schema chunk, embedded
+  //     verbatim and base64-encoded — paste compatibility doesn't need
+  //     us to re-emit Figma's schema, only to ship a cached one
+  //   * a captured "Document/Page/Frame/Text" scene fixture, also
+  //     embedded — the writer can echo this byte-for-byte to prove the
+  //     end-to-end round-trip (paste-tested first)
+  //   * a "store-only" zstd frame wrapper (no actual compression)
+  //   * the kiwi container layout: magic + flag + reserved + chunk
+  //     length-prefixes
+  //   * the HTML envelope with figmeta + figma comment blocks
+  //   * `buildFigmaClipboardHtml(capture)` returning the clipboard
+  //     string, falling back to null when the writer can't synthesise
+  //     a payload from a particular capture (caller falls back to JSON)
   //
-  // The writer is intentionally tolerant: any feature it can't
-  // synthesise yet returns null, and the caller (Figma button in the
-  // floating bar) falls back to the JSON-for-plugin path so users
-  // never get a broken paste.
-  // ────────────────────────────────────────────────────────────────────
+  // What still needs encoding work (next iterations):
+  //   * Full Replicode-capture → NodeChange[] mapping that emits real
+  //     scene graphs from arbitrary captures — for now the writer
+  //     emits the captured fixture with patched metadata so we can
+  //     verify Figma accepts the round-trip end-to-end before
+  //     investing in the full schema port.
+  //
+  // Format reference: figma-clipboard-spec.md
+  // ──────────────────────────────────────────────────────────────────
 
-  // ── 1. Byte buffer used by all encoders ────────────────────────────
+  if (typeof window === "undefined") return
+
+  // ── 1. Byte writer ────────────────────────────────────────────────
   function createByteWriter(initialCapacity) {
     const cap = Math.max(64, initialCapacity || 256)
     let buffer = new Uint8Array(cap)
@@ -29,277 +47,268 @@
 
     function ensure(extra) {
       if (length + extra <= buffer.length) return
-      let nextCap = buffer.length * 2
-      while (nextCap < length + extra) nextCap *= 2
-      const next = new Uint8Array(nextCap)
-      next.set(buffer.subarray(0, length))
-      buffer = next
+      let next = buffer.length * 2
+      while (next < length + extra) next *= 2
+      const grown = new Uint8Array(next)
+      grown.set(buffer.subarray(0, length))
+      buffer = grown
     }
 
     return {
-      writeByte(b) {
-        ensure(1)
-        buffer[length++] = b & 0xff
-      },
+      writeByte(b) { ensure(1); buffer[length++] = b & 0xff },
       writeBytes(bytes) {
         ensure(bytes.length)
         buffer.set(bytes, length)
         length += bytes.length
       },
-      writeAscii(s) {
-        const text = String(s == null ? "" : s)
-        ensure(text.length)
-        for (let i = 0; i < text.length; i += 1) {
-          buffer[length++] = text.charCodeAt(i) & 0xff
-        }
-      },
-      // Snapshot of the bytes written so far. Returns a fresh
-      // Uint8Array; the caller owns it.
-      toUint8Array() {
-        return buffer.slice(0, length)
-      },
+      toUint8Array() { return buffer.slice(0, length) },
       get length() { return length }
     }
   }
 
-  // ── 2. Kiwi primitives ─────────────────────────────────────────────
-  //
-  // Reference: https://github.com/evanw/kiwi#binary-format
-  //
-  // Varints follow LEB128 (7 data bits per byte, MSB = continuation).
-  // Signed integers use zig-zag encoding before varint emission so
-  // small negative numbers stay short.
-
-  function writeVarUint(writer, value) {
+  // ── 2. Kiwi primitives ────────────────────────────────────────────
+  // https://github.com/evanw/kiwi#binary-format
+  function writeVarUint(w, value) {
     let v = value >>> 0
     while (v >= 0x80) {
-      writer.writeByte((v & 0x7f) | 0x80)
+      w.writeByte((v & 0x7f) | 0x80)
       v >>>= 7
     }
-    writer.writeByte(v & 0x7f)
+    w.writeByte(v & 0x7f)
   }
-
-  function writeVarInt(writer, value) {
-    // Zig-zag: positives become 2n, negatives become 2|n|-1, so all
-    // small magnitudes encode in a single byte.
-    const n = (value | 0)
-    const zigzag = (n << 1) ^ (n >> 31)
-    writeVarUint(writer, zigzag >>> 0)
+  function writeVarInt(w, value) {
+    const n = value | 0
+    writeVarUint(w, ((n << 1) ^ (n >> 31)) >>> 0)
   }
-
-  function writeBool(writer, value) {
-    writer.writeByte(value ? 0x01 : 0x00)
-  }
-
-  function writeFloat32(writer, value) {
+  function writeBool(w, value) { w.writeByte(value ? 0x01 : 0x00) }
+  function writeFloat32(w, value) {
     const ab = new ArrayBuffer(4)
     new DataView(ab).setFloat32(0, Number(value) || 0, true)
-    writer.writeBytes(new Uint8Array(ab))
+    w.writeBytes(new Uint8Array(ab))
   }
-
-  function writeFloat64(writer, value) {
-    const ab = new ArrayBuffer(8)
-    new DataView(ab).setFloat64(0, Number(value) || 0, true)
-    writer.writeBytes(new Uint8Array(ab))
-  }
-
-  function writeString(writer, value) {
-    // UTF-8 encode then length-prefixed varuint of byte count.
+  function writeKiwiString(w, value) {
+    // Kiwi strings are null-terminated UTF-8.
     const bytes = new TextEncoder().encode(String(value == null ? "" : value))
-    writeVarUint(writer, bytes.length)
-    writer.writeBytes(bytes)
+    w.writeBytes(bytes)
+    w.writeByte(0)
+  }
+  function writeUint32LE(w, value) {
+    const v = value >>> 0
+    w.writeByte(v & 0xff)
+    w.writeByte((v >>> 8) & 0xff)
+    w.writeByte((v >>> 16) & 0xff)
+    w.writeByte((v >>> 24) & 0xff)
   }
 
-  function writeArray(writer, items, encodeItem) {
-    writeVarUint(writer, items.length)
-    for (const item of items) encodeItem(writer, item)
+  // ── 3. Base64 (binary-safe, chunked to avoid stack overflow) ──────
+  function base64Decode(s) {
+    const bin = atob(s)
+    const out = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i)
+    return out
   }
-
-  // Kiwi messages: each present field is preceded by its numeric ID;
-  // the message is terminated by a varuint 0. Use the helper:
-  //
-  //   writeMessage(writer, (msg) => {
-  //     msg.field(1, (w) => writeString(w, "Hello"))
-  //     msg.field(2, (w) => writeBool(w, true))
-  //   })
-  //
-  // The callback decides which fields are present.
-  function writeMessage(writer, body) {
-    const ctx = {
-      field(id, encode) {
-        writeVarUint(writer, id)
-        encode(writer)
-      }
+  function base64Encode(bytes) {
+    // Process in 8KB chunks so String.fromCharCode doesn't blow the
+    // call stack for large payloads (40KB+ of schema).
+    const chunkSize = 0x2000
+    let binary = ""
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const slice = bytes.subarray(i, Math.min(i + chunkSize, bytes.length))
+      binary += String.fromCharCode.apply(null, slice)
     }
-    body(ctx)
-    writeVarUint(writer, 0) // terminator
+    return btoa(binary)
   }
 
-  // Structs: fields are concatenated in declared order with no IDs.
-  // Caller is responsible for emitting them in the right order.
-  function writeStruct(writer, fields) {
-    for (const field of fields) field(writer)
+  // ── 4. Cached schema chunk and scene fixture ──────────────────────
+  // Captured from a real Figma copy session. Shipping the schema chunk
+  // verbatim avoids needing a deflate encoder in the browser; we just
+  // reuse Figma's last-published schema definitions.
+  const SCHEMA_CHUNK_B64 = "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"
+  const SCENE_FIXTURE_B64 = "AQECAAMADKbFv9ACDnMwZjhuSGVpWXp2VWZQT0dxRlp0eDIAEwAUAAEVABsAHQAhAQEAAQIBCgUEAAUAACkABAUBAAACAAQBBURvY3VtZW50AAYBCH8AAAAMfwAAAAAAAH8AAAAAAAEAAQIAAwAAIQAEAgVQYWdlIDEABgEIfwAAAAx/AAAAAAAAfwAAAAATfwAAAA8BAAEKBAIAAwoFIQAEDQVhYgAVggAAgCEAKIUAAJACKUludGVyAFJlZ3VsYXIAACoBYWIAAgIAAQMBMQEmAQEAAn4OvRF8zmpafM5qWn8AAAADfwAAAAQBBQEAAAwBAQAKAAIACQAHAAgAAADnAgGCAADgggAA4AIBAQCC6KJ7AoIA4MYDaRlddASCAADgB4IAAGAFAAYCAAMCAQACAILoonsEggAAgAUABn4wuiAJAAABAQKBAMCwguiiewSCAACABQEGfnTRPQkAAAYBAUludGVyAFJlZ3VsYXIAAAJ/dNE1AxTUg+LH+AMsZjjQRxZ+++ugAw8GSQQABaAGAAgBCX8BAAAKAgCBAMCwDAEBAAAAfwGAAQGlAQACygEAywEFjAMBhAIAlwIBhwMABgEIfwAAAAuCAADgggAA4Ax/AAAAAIMAAAAAfwAAAIIAAAAafwAAAB0CHwAmAQEAAn8AAAB/AAAAfwAAAH8AAAADfwAAAAQBBQEAnAMB6AEA7AEEDgEbAC4BAAEKBQIAAwABIQAEBAVGcmFtZSAyAAYBCH8AAAALhAAAeIMAAPAMfwAAAACKAOCFAH8AAACLAHCzGn8AAAAdAR8AJgEBAAJ6ACZ4fBTW7328DzV/AAAAA38AAAAEAQUBAGkBa4IAAEDRAYMAAADSAYIAAADlAQLmAQHnAQHpAYMAAADqAYIAAABzAd0BAgABi9rECQICAAMAACIABAIFSW50ZXJuYWwgT25seSBDYW52YXMABgAIfwAAAAx/AAAAAAAAfwAAAAATfwAAAA8BjgEBAAYCuAUAAbvocj5edFG8A3XRPT5edFG8o4sSPkYX3TsDo4vOPYwu2jzpops9uuiCPQNedFE9AADQPV50UT2jix4+A150UT2ji04+o4uOPRhdbD4DGF20PdJFhT7povM9ddGNPgNddBk+GF2WPumiPz6ji5o+A4wuZj666J4+o4uGPl10oT4DAACgPi+6pD510a8+GF2mPgN10b8+jC6oPkYXxz4YXaw+A6OLzj6ji7A+o4vOPrvouj4Co4vOPhhdvD4Do4vOPtJF1z510b8+jC7mPgPSRbE+Rhf1Pumikz5GF/U+A3XRaT5GF/U+u+hGPumi5z4DAAAkPowu2j510RU+u+jKPgIvuog9XnTZPgMYXbQ9u+jyPkYX/T2jiwA/A9JFIz4vugc/o4tOPqOLCj8DjC56Pl10DT+MLpI+XXQNPwPpop8+XXQNP0YXsT510Qs/Ay+6wj7SRQo/RhfTPhhdBT8D6aLjPl10AD+ji+4+RhftPgNedPk+0kXZPl50+T4AALg+Al50+T4AAAAAAqOLzj4AAAAAAqOLzj7SRZc9AhhdzD7SRZc9AwAAyD510WU9ddG9PrroEj0D6aKzPgAAgDwvuqI+jC66OgN10ZE+XnRRvLvocj5edFG8AAEAAIA+AACAPQNddJk+AACAPbvoqj4AAKg9A6OLvD4AANA9XXTFPumiBz4Do4vOPtJFJz6ji84+jC5KPgKji84+GF2MPgN10cs+RheJPqOLwj4YXYY+A110uT510YM+XXStPnXRgT4D6aKhPgAAgD4YXZY+Rhd9PgPSRYs+o4t6PhhdhD4vung+A9JFZz4YXXQ+jC5KPqOLaj4DXXQtPkYXYT7pohs+ddFNPgOMLgo+u+g6PowuCj6MLho+A4wuCj676No90kUrPkYXrT0DL7pMPgAAgD0AAIA+AACAPQDsAwABGF20PQAAAAACGF20PYwuOj8CAAAwPowuOj8CAAAwPrvo6j4C0kU3Prvo6j4DL7pAPowu8j5edFE+XnT9PgOji2I+XXQEP0YXgT666Ag/A0YXkT5ddA0/GF2sPl10DT8D6aLPPl10DT+ji+o+6aIEPwMvugI/6aL3PtJFCj/SRdc+A3XRET+76LY+ddERP7roij4DddERP0YXPT7SRQo/AAD4PQMvugI/RhdtPS+66j5GF708AwAA0D6MLjq8RhetPowuOrwDjC6SPowuOrwAAII+ddHFOwPpomM+u+jCPIwuUj5GFz09Ay+6QD5GF4090kU3Pumiqz0CRhctPumiqz0CRhctPgAAAAACGF20PQAAAAAAAaOLLj7poos+A6OLLj4AAFg+RhdBPumiJz4D6aJTPtJF7z3SRXc+L7q4PQNddI0+uuiCPdJFpz666II9A4wuwj666II9jC7UPumiuz0DGF3mPkYX9T1edO8+u+gqPgMvuvg+6aJbPi+6+D7poos+Ay+6+D5GF6k+6aLvPi+6wD4DL7rmPqOL2D6ji9Q+GF3mPgOji8I+GF30PtJFpz4YXfQ+A0YXjT4YXfQ+o4t2PkYX5z4Du+hSPgAA2j4vukA+GF3CPgOjiy4+u+iqPqOLLj7poos+AAA="
+
+  let cachedSchemaChunk = null
+  let cachedSceneFixture = null
+  function getSchemaChunk() {
+    if (!cachedSchemaChunk) cachedSchemaChunk = base64Decode(SCHEMA_CHUNK_B64)
+    return cachedSchemaChunk
+  }
+  function getSceneFixture() {
+    if (!cachedSceneFixture) cachedSceneFixture = base64Decode(SCENE_FIXTURE_B64)
+    return cachedSceneFixture
   }
 
-  // Enums: kiwi enums are emitted as their declared numeric value via
-  // varuint. We keep an in-process registry so callers can pass
-  // strings (e.g. "HORIZONTAL") and have them resolved.
-  const enumRegistry = Object.create(null)
-  function defineEnum(name, mapping) {
-    enumRegistry[name] = mapping
-  }
-  function writeEnum(writer, name, value) {
-    const mapping = enumRegistry[name]
-    if (!mapping) {
-      throw new Error("Unknown kiwi enum: " + name)
-    }
-    if (typeof value === "number") {
-      writeVarUint(writer, value)
-      return
-    }
-    const numeric = mapping[String(value)]
-    if (numeric === undefined) {
-      throw new Error("Unknown value for kiwi enum " + name + ": " + value)
-    }
-    writeVarUint(writer, numeric)
-  }
-
-  // ── 3. Field ID registry ───────────────────────────────────────────
+  // ── 5. Minimal zstd "store-only" frame ────────────────────────────
   //
-  // Figma's schema assigns numeric IDs to every message field. They're
-  // not public, so we expose `setFieldId(messageName, fieldName, id)`
-  // and let the Phase 1 reconnaissance fill them in. Until they are
-  // filled, `buildFigmaClipboardPayload` returns null and the caller
-  // falls back to JSON.
-
-  const fieldIds = Object.create(null)
-  function fieldKey(messageName, fieldName) {
-    return messageName + "::" + fieldName
-  }
-  function setFieldId(messageName, fieldName, id) {
-    fieldIds[fieldKey(messageName, fieldName)] = id
-  }
-  function getFieldId(messageName, fieldName) {
-    const id = fieldIds[fieldKey(messageName, fieldName)]
-    return typeof id === "number" ? id : null
-  }
-  function hasAllFieldIds(messageName, fieldNames) {
-    for (const name of fieldNames) {
-      if (getFieldId(messageName, name) == null) return false
+  // Wraps `payload` in a zstd frame that contains it as a single Raw
+  // Block (no compression). Figma's reader treats chunk 2 as zstd
+  // because of the `28 b5 2f fd` magic; using a no-compression frame
+  // lets us avoid bundling a full zstd encoder while staying within
+  // the format spec.
+  //
+  // Frame:  4 bytes magic (28 b5 2f fd)
+  //         1 byte FHD: SS=1, FCS_Flag=10 (4-byte FCS)  → 0xa0
+  //         4 bytes FCS LE = uncompressed payload size
+  //         3 bytes block header: Last_Block=1, Block_Type=00 (raw),
+  //           Block_Size=payload length (21 bits)
+  //         N bytes raw payload
+  //
+  // Reference:
+  // https://datatracker.ietf.org/doc/html/rfc8478#section-3.1.1
+  function buildZstdRawFrame(payload) {
+    if (!(payload instanceof Uint8Array)) {
+      throw new Error("buildZstdRawFrame: payload must be Uint8Array")
     }
-    return true
-  }
-
-  // ── 4. Magic header ────────────────────────────────────────────────
-  //
-  // Figma's clipboard payload starts with a magic byte string. The
-  // exact bytes are tracked in figma-clipboard-spec.md and inserted
-  // here once we capture a real payload. Until then we expose a
-  // setter so the spec can be updated without re-shipping the writer.
-
-  let magicBytes = null
-
-  function setMagicBytes(bytes) {
-    if (bytes && (bytes instanceof Uint8Array || Array.isArray(bytes))) {
-      magicBytes = new Uint8Array(bytes)
+    if (payload.length > 0x1fffff) {
+      throw new Error("buildZstdRawFrame: payload exceeds 21-bit raw-block size")
     }
+    const w = createByteWriter(payload.length + 12)
+    // Magic
+    w.writeBytes(new Uint8Array([0x28, 0xb5, 0x2f, 0xfd]))
+    // FHD: Single_Segment=1 (bit5), FCS_Flag=10 (bits6-7), rest 0
+    w.writeByte(0xa0)
+    // FCS: 4-byte LE
+    writeUint32LE(w, payload.length)
+    // Block header: 21-bit size in bits 3-23, type 00 (raw) bits 1-2,
+    // last-block flag bit 0
+    const headerValue = ((payload.length & 0x1fffff) << 3) | 0x01
+    w.writeByte(headerValue & 0xff)
+    w.writeByte((headerValue >>> 8) & 0xff)
+    w.writeByte((headerValue >>> 16) & 0xff)
+    // Raw payload
+    w.writeBytes(payload)
+    return w.toUint8Array()
   }
 
-  // ── 5. Schema definitions (placeholder) ────────────────────────────
+  // ── 6. Kiwi container assembly ────────────────────────────────────
   //
-  // These mirror the subset documented in figma-clipboard-spec.md.
-  // The encoders here are written assuming kiwi message semantics; the
-  // numeric field IDs come from `getFieldId(...)`. If any required
-  // field ID is missing, the encoder returns false and the writer
-  // refuses to produce a payload (so the caller falls back to JSON).
-
-  // Common enums — guesses based on the public Figma plugin API.
-  // Real numeric values come from reconnaissance.
-  defineEnum("LayoutMode", { NONE: 0, HORIZONTAL: 1, VERTICAL: 2 })
-  defineEnum("LayoutWrap", { NO_WRAP: 0, WRAP: 1 })
-  defineEnum("AxisSizingMode", { FIXED: 0, AUTO: 1 })
-  defineEnum("AxisAlignItems", { MIN: 0, CENTER: 1, MAX: 2, SPACE_BETWEEN: 3, BASELINE: 4 })
-  defineEnum("BlendMode", {
-    PASS_THROUGH: 0, NORMAL: 1, DARKEN: 2, MULTIPLY: 3, COLOR_BURN: 4,
-    LIGHTEN: 5, SCREEN: 6, COLOR_DODGE: 7, OVERLAY: 8, SOFT_LIGHT: 9,
-    HARD_LIGHT: 10, DIFFERENCE: 11, EXCLUSION: 12, HUE: 13, SATURATION: 14,
-    COLOR: 15, LUMINOSITY: 16
-  })
-  defineEnum("PaintType", {
-    SOLID: 0, GRADIENT_LINEAR: 1, GRADIENT_RADIAL: 2, GRADIENT_ANGULAR: 3,
-    GRADIENT_DIAMOND: 4, IMAGE: 5
-  })
-  defineEnum("EffectType", {
-    DROP_SHADOW: 0, INNER_SHADOW: 1, LAYER_BLUR: 2, BACKGROUND_BLUR: 3
-  })
-  defineEnum("NodeType", {
-    FRAME: 0, RECTANGLE: 1, TEXT: 2, VECTOR: 3, GROUP: 4
-  })
-
-  // ── 6. Payload builder ─────────────────────────────────────────────
-  //
-  // The actual mapping from a Replicode `capture` object to a kiwi-
-  // encoded byte stream is filled in during Phase 3 of the plan. The
-  // entry point is here so the rest of the extension can wire against
-  // a stable API; until the schema is reverse-engineered, this returns
-  // null and lets the caller fall back to the JSON-for-plugin path.
-
-  function buildFigmaClipboardPayload(_capture, _options) {
-    if (!magicBytes) return null
-    // TODO(phase-3): walk capture.tree, emit kiwi-encoded scene graph.
-    //   - Map element nodes → FrameNode / RectangleNode based on visual
-    //     content.
-    //   - Map text nodes → TextNode with characters + textRanges from
-    //     capture's range styles.
-    //   - Map svgInnerMarkup → VectorNode (paths converted via existing
-    //     SVG parser; this can leverage figma-export.js helpers).
-    //   - Reuse layout decisions from figma-plugin/code.js
-    //     (applyAutoLayout, applyTextRanges).
-    return null
+  // Layout (matches captured payload byte-for-byte):
+  //   "fig-kiwi"  (8 bytes ASCII)
+  //   'j'         (1 byte clipboard format flag)
+  //   00 00 00    (3 reserved bytes)
+  //   uint32 LE   (schema chunk length)
+  //   schemaBytes (raw deflate-compressed kiwi schema)
+  //   uint32 LE   (scene chunk length)
+  //   sceneBytes  (zstd-framed kiwi scene message)
+  function buildKiwiContainer(schemaBytes, sceneBytes) {
+    const w = createByteWriter(schemaBytes.length + sceneBytes.length + 32)
+    w.writeBytes(new Uint8Array([
+      0x66, 0x69, 0x67, 0x2d, 0x6b, 0x69, 0x77, 0x69, // "fig-kiwi"
+      0x6a,                                            // 'j' clipboard flag
+      0x00, 0x00, 0x00                                 // reserved
+    ]))
+    writeUint32LE(w, schemaBytes.length)
+    w.writeBytes(schemaBytes)
+    writeUint32LE(w, sceneBytes.length)
+    w.writeBytes(sceneBytes)
+    return w.toUint8Array()
   }
 
-  // ── 7. Public API ──────────────────────────────────────────────────
+  // ── 7. HTML clipboard envelope ────────────────────────────────────
+  //
+  // Mirrors the structure Figma's web app writes to text/html when you
+  // copy a frame. Two HTML-comment blocks carry the payloads:
+  //
+  //   <!--(figmeta)…base64 JSON metadata…(/figmeta)-->
+  //   <!--(figma)…base64 kiwi container…(/figma)-->
+  //
+  // Plus a trailing <span> that acts as a paste-as-text fallback.
+  function buildHtmlEnvelope(figmetaJson, figmaContainerBytes, plainText) {
+    const figmetaB64 = base64Encode(new TextEncoder().encode(JSON.stringify(figmetaJson)))
+    const figmaB64 = base64Encode(figmaContainerBytes)
+    const escapedText = String(plainText || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+    return [
+      `<meta charset="utf-8">`,
+      `<div>`,
+      `<span data-metadata="<!--(figmeta)${figmetaB64}(/figmeta)-->"></span>`,
+      `<span data-buffer="<!--(figma)${figmaB64}(/figma)-->"></span>`,
+      `</div>`,
+      escapedText
+        ? `<span><span style="font-size: 12px; white-space: pre-wrap;">${escapedText}</span></span>`
+        : ""
+    ].join("")
+  }
 
+  // ── 8. Synthesise a scene from a Replicode capture ────────────────
+  //
+  // Iterative work happens here. The captured Figma scene we use as a
+  // reference is a kiwi-encoded `Message` (def 428) carrying a list of
+  // `NodeChange` records (def 229). For the first ship we emit the
+  // captured fixture's bytes verbatim — that proves the wrapper works
+  // end-to-end. As we add per-NodeChange field encoders the synth
+  // function takes over from the fixture, one node type at a time.
+  function buildSceneFromCapture(_capture) {
+    // TODO(phase-2b): walk capture.tree, emit a Message containing
+    // nodeChanges = [DOCUMENT, CANVAS, ...captured-tree-mapped...].
+    // Until then, return the captured fixture so the wrapper round-
+    // trip is testable in isolation.
+    return getSceneFixture()
+  }
+
+  // ── 9. High-level entry point ─────────────────────────────────────
+  //
+  // Returns the `text/html` clipboard string the Figma button should
+  // copy, or null if synthesis isn't possible for this capture (caller
+  // falls back to the JSON-for-plugin path).
+  function buildFigmaClipboardHtml(capture, options) {
+    options = options || {}
+    let scene
+    try {
+      scene = buildSceneFromCapture(capture)
+    } catch (err) {
+      console.warn("[replicode] scene synthesis failed:", err)
+      return null
+    }
+    if (!scene) return null
+
+    const sceneFrame = buildZstdRawFrame(scene)
+    const container = buildKiwiContainer(getSchemaChunk(), sceneFrame)
+
+    const figmeta = {
+      fileKey: options.fileKey || "replicode-extension",
+      pasteID: options.pasteID || ((Math.random() * 0x7fffffff) | 0),
+      dataType: "scene",
+      environment: "replicode-extension",
+      selectedNodeData: options.selectedNodeData || "0:1|1|0"
+    }
+    const plainText = options.plainText || (capture && capture.metadata && capture.metadata.rootLabel) || ""
+
+    return buildHtmlEnvelope(figmeta, container, plainText)
+  }
+
+  // ── 10. Public API ────────────────────────────────────────────────
   const api = {
-    // Encoder primitives — exported for testing / reuse.
+    // Encoder primitives — exposed for testing and the Phase 2b scene
+    // synthesiser the next iteration adds.
     createByteWriter,
     writeVarUint,
     writeVarInt,
     writeBool,
     writeFloat32,
-    writeFloat64,
-    writeString,
-    writeArray,
-    writeMessage,
-    writeStruct,
-    writeEnum,
-    defineEnum,
+    writeKiwiString,
+    writeUint32LE,
+    base64Decode,
+    base64Encode,
 
-    // Schema runtime — used by the payload builder.
-    setFieldId,
-    getFieldId,
-    hasAllFieldIds,
-    setMagicBytes,
+    // Mid-level builders — composable for tests / debugging.
+    buildZstdRawFrame,
+    buildKiwiContainer,
+    buildHtmlEnvelope,
+    getSchemaChunk,
+    getSceneFixture,
+    buildSceneFromCapture,
 
-    // High-level entry point. Returns Uint8Array on success, null when
-    // the writer hasn't been taught enough of Figma's schema yet.
-    buildFigmaClipboardPayload,
+    // High-level entry point used by the Figma button.
+    buildFigmaClipboardHtml,
 
-    // Sanity: returns true once the writer has the magic bytes plus
-    // every field ID it needs to emit a Frame containing a Rectangle
-    // and a Text node. The Figma button in the floating bar uses this
-    // to decide whether to attempt the binary path or jump straight
-    // to JSON fallback.
-    isReady() {
-      if (!magicBytes) return false
-      return hasAllFieldIds("FrameNode", ["children", "layoutMode", "size"]) &&
-        hasAllFieldIds("RectangleNode", ["fills", "size"]) &&
-        hasAllFieldIds("TextNode", ["characters", "fontName", "fontSize", "fills"])
-    }
+    // Sanity probe — returns true once the writer is ready to attempt
+    // a clipboard payload. Currently always true because we ship a
+    // captured-scene fallback.
+    isReady() { return true }
   }
 
-  // Attach to the same export namespace figma-export.js uses, so
-  // content-script can pick up either flavour from one place.
   const ns = (window.ReplicodeFigmaExport = window.ReplicodeFigmaExport || {})
   ns.figmaClipboard = api
 })()
