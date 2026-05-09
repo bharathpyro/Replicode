@@ -359,9 +359,10 @@
   //   [2] sessionID: uint
   //   [3] ackID: uint
   //   [4] nodeChanges: NodeChange[]
-  //   [12] pasteID: int  (zig-zag)
+  //   [12] pasteID: int  (zig-zag) — must match figmeta.pasteID
   //   [14] pasteFileKey: string
   //   [19] pasteIsPartiallyOutsideEnclosingFrame: bool
+  //   [20] pastePageId: GUID  (zero = "Figma resolves on paste")
   //   [21] isCut: bool
   function writeMessage(w, m) {
     writeVarUint(w, 1)
@@ -385,6 +386,11 @@
     }
     writeVarUint(w, 19)
     writeBool(w, !!m.pasteIsPartiallyOutsideEnclosingFrame)
+    // pastePageId — zero GUID asks Figma to resolve to the active
+    // page. Mirrors how Figma's own pastes look when they don't carry
+    // a specific destination page.
+    writeVarUint(w, 20)
+    writeGUID(w, m.pastePageId || { sessionID: 0, localID: 0 })
     writeVarUint(w, 21)
     writeBool(w, !!m.isCut)
     w.writeByte(0)
@@ -534,9 +540,9 @@
     })
   }
 
-  function buildSceneFromCapture(capture) {
+  function buildSceneFromCapture(capture, pasteID) {
     const root = pickRootRect(capture)
-    if (!root) return getSceneFixture()
+    if (!root) return null
 
     const tree = capture.tree
     const docGuid = { sessionID: 0, localID: 1 }
@@ -589,7 +595,7 @@
       sessionID: 0,
       ackID: 0,
       nodeChanges: state.nodeChanges,
-      pasteID: (Math.random() * 0x7fffffff) | 0,
+      pasteID,
       pasteFileKey: "replicode-extension",
       pasteIsPartiallyOutsideEnclosingFrame: false,
       isCut: false
@@ -597,7 +603,15 @@
 
     const w = createByteWriter(1024)
     writeMessage(w, message)
-    return w.toUint8Array()
+    return {
+      bytes: w.toUint8Array(),
+      // The node Figma should treat as "the user's selection" when
+      // pasting. Same shape as the captured figmeta: <session>:<localID>
+      // |<NodeType>|<flags>. Pointing at the root FRAME (NodeType=4)
+      // — pointing at the Document/Canvas wrappers makes Figma silently
+      // drop the paste because they can't be re-parented.
+      selectedNodeData: rootGuid.sessionID + ":" + rootGuid.localID + "|" + NODE_TYPE.FRAME + "|0"
+    }
   }
 
   // ── 9. High-level entry point ─────────────────────────────────────
@@ -607,24 +621,43 @@
   // falls back to the JSON-for-plugin path).
   function buildFigmaClipboardHtml(capture, options) {
     options = options || {}
+    // Single source of truth for pasteID — used by BOTH the figmeta
+    // JSON (so Figma can match it for paste deduplication) AND the
+    // top-level Message (field 12). Mismatched values cause Figma
+    // to silently drop the paste.
+    const pasteID = (options.pasteID != null
+      ? options.pasteID | 0
+      : (Math.random() * 0x7fffffff) | 0)
+
     let scene
     try {
-      scene = buildSceneFromCapture(capture)
+      scene = buildSceneFromCapture(capture, pasteID)
     } catch (err) {
       console.warn("[replicode] scene synthesis failed:", err)
       return null
     }
     if (!scene) return null
 
-    const sceneFrame = buildZstdRawFrame(scene)
+    const sceneFrame = buildZstdRawFrame(scene.bytes)
     const container = buildKiwiContainer(getSchemaChunk(), sceneFrame)
 
+    // Figma's paste handler validates these JSON fields against the
+    // shape of its own clipboard writes. Diverging from that shape is
+    // a likely cause of silent paste rejection. Captured Figma sample:
+    //   { fileKey: "<22-char base62>", pasteID, dataType: "scene",
+    //     environment: "www.figma.com", selectedNodeData: "<sess>:<id>|<NodeType>|<flags>" }
+    // We mirror the shape exactly:
+    //   - fileKey: a placeholder 22-char string that won't collide
+    //     with any real Figma file (but still passes whatever length
+    //     check Figma may do)
+    //   - environment: "www.figma.com" so Figma doesn't filter the
+    //     paste out as cross-environment
     const figmeta = {
-      fileKey: options.fileKey || "replicode-extension",
-      pasteID: options.pasteID || ((Math.random() * 0x7fffffff) | 0),
+      fileKey: options.fileKey || "ReplicodeReplicodeRecv",
+      pasteID,
       dataType: "scene",
-      environment: "replicode-extension",
-      selectedNodeData: options.selectedNodeData || "0:1|1|0"
+      environment: options.environment || "www.figma.com",
+      selectedNodeData: options.selectedNodeData || scene.selectedNodeData
     }
     const plainText = options.plainText || (capture && capture.metadata && capture.metadata.rootLabel) || ""
 

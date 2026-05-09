@@ -859,6 +859,25 @@
         let html = null
         try {
           html = writer.buildFigmaClipboardHtml(capture)
+          // Diagnostic: dump what we synthesised so paste failures can be
+          // debugged from the page console without re-running the writer.
+          if (html) {
+            const figmetaMatch = html.match(/<!--\(figmeta\)([A-Za-z0-9+/=]+)\(\/figmeta\)-->/)
+            if (figmetaMatch) {
+              try {
+                const meta = JSON.parse(atob(figmetaMatch[1]))
+                console.log("[replicode] figma paste payload:", {
+                  htmlLength: html.length,
+                  figmeta: meta,
+                  captureRoot: capture.tree && {
+                    tag: capture.tree.tag,
+                    metrics: capture.tree.metrics,
+                    childCount: (capture.tree.children || []).length
+                  }
+                })
+              } catch (_) { /* swallow — diagnostic only */ }
+            }
+          }
         } catch (err) {
           console.warn("[replicode] figma clipboard writer threw, falling back to plugin JSON:", err)
         }
