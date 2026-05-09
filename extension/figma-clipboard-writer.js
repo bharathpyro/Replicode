@@ -351,6 +351,12 @@
   // MESSAGE NodeChange — only the fields we set today. Skipping the
   // ~580 we don't need; the receiver fills in defaults. Each field is
   // a (varuint id, value...) pair; the message ends with varuint 0.
+  //
+  // Field order matters in one respect only: it must match the
+  // captured Figma scene's order to maximise byte-level parity. The
+  // captured Document NC writes (in this order):
+  //   guid, phase, type, name, visible, opacity, transform
+  // We mirror that here so per-node field ordering matches.
   function writeNodeChange(w, n) {
     if (!n) { w.writeByte(0); return }
 
@@ -373,6 +379,14 @@
     if (n.name != null) {
       writeVarUint(w, 5)
       writeKiwiString(w, n.name)
+    }
+    if (n.visible != null) {
+      writeVarUint(w, 6)
+      writeBool(w, !!n.visible)
+    }
+    if (n.opacity != null) {
+      writeVarUint(w, 8)
+      writeFloat32(w, n.opacity)
     }
     if (n.size) {
       writeVarUint(w, 11)
@@ -544,6 +558,18 @@
     return NODE_TYPE.FRAME
   }
 
+  // GUID conventions, learned from the captured Figma fixture:
+  //   * Document at (0, 0) — Figma seems to special-case this GUID
+  //     as "the document"; using anything else makes Figma's wasm
+  //     decoder fail with "Failed to load scene".
+  //   * Canvas at (0, 1) with parentIndex.guid = (0, 0)
+  //   * Content nodes use a separate sessionID (we use 1) to avoid
+  //     colliding with the wrapper GUIDs. Content session is what
+  //     the figmeta selectedNodeData references.
+  const DOC_GUID = { sessionID: 0, localID: 0 }
+  const CANVAS_GUID = { sessionID: 0, localID: 1 }
+  const CONTENT_SESSION_ID = 1
+
   // Recursively emit child NodeChange records under `parentGuid`.
   // `parentMetrics` is in absolute viewport coords; child frames get
   // transform.m02/m12 = childMetrics - parentMetrics so positioning
@@ -551,7 +577,7 @@
   function emitChildren(state, parent, parentMetrics) {
     const children = (parent.children || []).filter(nodeTypeForCapture)
     children.forEach((child, index) => {
-      const guid = { sessionID: 0, localID: state.nextLocalId++ }
+      const guid = { sessionID: CONTENT_SESSION_ID, localID: state.nextLocalId++ }
       const cm = child.metrics
       const px = (parentMetrics && parentMetrics.x) || 0
       const py = (parentMetrics && parentMetrics.y) || 0
@@ -566,6 +592,8 @@
         parentIndex: { guid: state.parentGuidStack[state.parentGuidStack.length - 1], position: lexoRankAt(index) },
         type: NODE_TYPE.FRAME,
         name: child.label || child.tag || "Frame",
+        visible: true,
+        opacity: 1,
         size: { x: Math.max(1, cm.width), y: Math.max(1, cm.height) },
         transform,
         fillPaints: fill ? [fill] : []
@@ -581,9 +609,7 @@
     if (!root) return null
 
     const tree = capture.tree
-    const docGuid = { sessionID: 0, localID: 1 }
-    const canvasGuid = { sessionID: 0, localID: 2 }
-    const rootGuid = { sessionID: 0, localID: 3 }
+    const rootGuid = { sessionID: CONTENT_SESSION_ID, localID: 1 }
 
     const rootName = (tree.label || tree.name || tree.tag) || "Frame"
     const rootFill = fillFromStyles(tree.styles) || {
@@ -595,28 +621,43 @@
     }
 
     const state = {
-      nextLocalId: 4,
+      nextLocalId: 2,
       parentGuidStack: [rootGuid],
       nodeChanges: [
+        // Document — GUID (0,0) by Figma convention; carries the
+        // same per-node "system" fields the captured fixture sets
+        // (visible/opacity/transform) so the wasm decoder doesn't
+        // fail validating it.
         {
-          guid: docGuid,
+          guid: DOC_GUID,
           phase: NODE_PHASE_CREATED,
           type: NODE_TYPE.DOCUMENT,
-          name: "Document"
+          name: "Document",
+          visible: true,
+          opacity: 1,
+          transform: IDENTITY_TRANSFORM
         },
+        // Page (Canvas) at (0,1) with parent (0,0).
         {
-          guid: canvasGuid,
+          guid: CANVAS_GUID,
           phase: NODE_PHASE_CREATED,
-          parentIndex: { guid: docGuid, position: "!" },
+          parentIndex: { guid: DOC_GUID, position: "!" },
           type: NODE_TYPE.CANVAS,
-          name: "Page 1"
+          name: "Page 1",
+          visible: true,
+          opacity: 1,
+          transform: IDENTITY_TRANSFORM
         },
+        // Root content frame — separate sessionID so its localID
+        // numbering doesn't collide with the wrappers.
         {
           guid: rootGuid,
           phase: NODE_PHASE_CREATED,
-          parentIndex: { guid: canvasGuid, position: "!" },
+          parentIndex: { guid: CANVAS_GUID, position: "!" },
           type: NODE_TYPE.FRAME,
           name: rootName,
+          visible: true,
+          opacity: 1,
           size: { x: root.width, y: root.height },
           transform: IDENTITY_TRANSFORM,
           fillPaints: [rootFill]
@@ -642,10 +683,9 @@
     return {
       bytes: w.toUint8Array(),
       // The node Figma should treat as "the user's selection" when
-      // pasting. Same shape as the captured figmeta: <session>:<localID>
-      // |<NodeType>|<flags>. Pointing at the root FRAME (NodeType=4)
-      // — pointing at the Document/Canvas wrappers makes Figma silently
-      // drop the paste because they can't be re-parented.
+      // pasting. Format: <sessionID>:<localID>|<NodeType>|<flags>.
+      // Points at the root FRAME — selecting Document/Canvas wrappers
+      // makes Figma drop the paste (they can't be re-parented).
       selectedNodeData: rootGuid.sessionID + ":" + rootGuid.localID + "|" + NODE_TYPE.FRAME + "|0"
     }
   }
