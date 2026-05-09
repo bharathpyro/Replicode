@@ -1,0 +1,2557 @@
+Total definitions: 584
+Bytes consumed: 66919 / 66919
+
+=== ALL DEFINITIONS (one-liner) ===
+   0  ENUM         MessageType  (25 fields)
+   1  ENUM         Axis  (2 fields)
+   2  ENUM         Access  (2 fields)
+   3  ENUM         NodePhase  (2 fields)
+   4  ENUM         WindingRule  (2 fields)
+   5  ENUM         NodeType  (65 fields)
+   6  ENUM         ShapeWithTextType  (30 fields)
+   7  ENUM         BlendMode  (19 fields)
+   8  ENUM         PaintType  (11 fields)
+   9  ENUM         ImageScaleMode  (4 fields)
+  10  ENUM         EffectType  (10 fields)
+  11  ENUM         TextCase  (6 fields)
+  12  ENUM         TextDecoration  (3 fields)
+  13  ENUM         TextDecorationStyle  (3 fields)
+  14  ENUM         LeadingTrim  (2 fields)
+  15  ENUM         NumberUnits  (3 fields)
+  16  ENUM         ConstraintType  (7 fields)
+  17  ENUM         StrokeAlign  (4 fields)
+  18  ENUM         StrokeCap  (21 fields)
+  19  ENUM         StrokeJoin  (3 fields)
+  20  ENUM         BooleanOperation  (4 fields)
+  21  ENUM         TextAlignHorizontal  (4 fields)
+  22  ENUM         TextAlignVertical  (3 fields)
+  23  ENUM         MouseCursor  (11 fields)
+  24  ENUM         VectorMirror  (3 fields)
+  25  ENUM         DashMode  (2 fields)
+  26  ENUM         ImageType  (6 fields)
+  27  ENUM         ExportConstraintType  (3 fields)
+  28  ENUM         LayoutGridType  (4 fields)
+  29  ENUM         LayoutGridPattern  (2 fields)
+  30  ENUM         TextAutoResize  (3 fields)
+  31  ENUM         TextTruncation  (2 fields)
+  32  ENUM         StyleSetType  (5 fields)
+  33  ENUM         StyleSetContentType  (3 fields)
+  34  ENUM         StackMode  (4 fields)
+  35  ENUM         StackAlign  (4 fields)
+  36  ENUM         StackCounterAlign  (6 fields)
+  37  ENUM         StackJustify  (5 fields)
+  38  ENUM         GridChildAlign  (4 fields)
+  39  ENUM         GridAutoTracks  (2 fields)
+  40  ENUM         StackSize  (3 fields)
+  41  ENUM         StackPositioning  (2 fields)
+  42  ENUM         StackWrap  (2 fields)
+  43  ENUM         StackCounterAlignContent  (2 fields)
+  44  ENUM         ConnectionType  (11 fields)
+  45  ENUM         InteractionType  (16 fields)
+  46  ENUM         TransitionType  (26 fields)
+  47  ENUM         EasingType  (15 fields)
+  48  ENUM         ScrollDirection  (4 fields)
+  49  ENUM         ScrollContractedState  (2 fields)
+  50  STRUCT       GUID  (2 fields)
+  51  STRUCT       Color  (4 fields)
+  52  STRUCT       Vector  (2 fields)
+  53  STRUCT       Rect  (4 fields)
+  54  STRUCT       ColorStop  (2 fields)
+  55  MESSAGE      ColorStopVar  (3 fields)
+  56  STRUCT       Matrix  (6 fields)
+  57  STRUCT       ParentIndex  (2 fields)
+  58  STRUCT       Number  (2 fields)
+  59  STRUCT       FontName  (3 fields)
+  60  ENUM         FontVariantNumericFigure  (3 fields)
+  61  ENUM         FontVariantNumericSpacing  (3 fields)
+  62  ENUM         FontVariantNumericFraction  (3 fields)
+  63  ENUM         FontVariantCaps  (7 fields)
+  64  ENUM         FontVariantPosition  (3 fields)
+  65  ENUM         FontStyle  (2 fields)
+  66  ENUM         SemanticWeight  (2 fields)
+  67  ENUM         SemanticItalic  (2 fields)
+  68  ENUM         CodeSnapshotState  (5 fields)
+  69  ENUM         SnapshotCaptureMode  (2 fields)
+  70  MESSAGE      CodeSourceInfo  (6 fields)
+  71  ENUM         CodeObjectType  (8 fields)
+  72  ENUM         LockMode  (3 fields)
+  73  ENUM         OpenTypeFeature  (229 fields)
+  74  STRUCT       ExportConstraint  (2 fields)
+  75  STRUCT       GUIDMapping  (2 fields)
+  76  STRUCT       Blob  (1 fields)
+  77  MESSAGE      Image  (3 fields)
+  78  MESSAGE      Video  (2 fields)
+  79  MESSAGE      PasteSource  (2 fields)
+  80  STRUCT       FilterColorAdjust  (8 fields)
+  81  MESSAGE      PaintFilterMessage  (10 fields)
+  82  MESSAGE      Paint  (40 fields)
+  83  ENUM         NoiseType  (3 fields)
+  84  ENUM         PatternTileType  (3 fields)
+  85  ENUM         PatternAlignment  (3 fields)
+  86  MESSAGE      FontMetaData  (5 fields)
+  87  MESSAGE      FontVariation  (3 fields)
+  88  MESSAGE      TextData  (19 fields)
+  89  MESSAGE      DerivedTextData  (12 fields)
+  90  MESSAGE      HyperlinkBox  (6 fields)
+  91  MESSAGE      MentionBox  (5 fields)
+  92  MESSAGE      Baseline  (8 fields)
+  93  MESSAGE      Glyph  (9 fields)
+  94  MESSAGE      Decoration  (2 fields)
+  95  MESSAGE      Blockquote  (3 fields)
+  96  MESSAGE      VectorData  (3 fields)
+  97  MESSAGE      TextPathStart  (2 fields)
+  98  MESSAGE      GUIDPath  (1 fields)
+  99  MESSAGE      SymbolData  (3 fields)
+ 100  MESSAGE      GUIDPathMapping  (2 fields)
+ 101  MESSAGE      DerivedBreakpointData  (1 fields)
+ 102  MESSAGE      NodeGenerationData  (3 fields)
+ 103  MESSAGE      DerivedImmutableFrameData  (2 fields)
+ 104  MESSAGE      JsxData  (1 fields)
+ 105  MESSAGE      DerivedJsxData  (1 fields)
+ 106  MESSAGE      AssetIdMap  (1 fields)
+ 107  MESSAGE      AssetIdEntry  (2 fields)
+ 108  MESSAGE      AssetRef  (2 fields)
+ 109  MESSAGE      AssetId  (7 fields)
+ 110  MESSAGE      StateGroupId  (2 fields)
+ 111  MESSAGE      StyleId  (2 fields)
+ 112  MESSAGE      SymbolId  (2 fields)
+ 113  MESSAGE      VariableID  (2 fields)
+ 114  MESSAGE      VariableOverrideId  (2 fields)
+ 115  MESSAGE      VariableSetID  (2 fields)
+ 116  MESSAGE      ModuleId  (2 fields)
+ 117  MESSAGE      ResponsiveSetId  (2 fields)
+ 118  MESSAGE      WebpageId  (2 fields)
+ 119  MESSAGE      ThemeID  (2 fields)
+ 120  MESSAGE      CodeLibraryId  (2 fields)
+ 121  MESSAGE      CodeFileId  (2 fields)
+ 122  MESSAGE      CodeComponentId  (2 fields)
+ 123  MESSAGE      CanvasNodeId  (3 fields)
+ 124  STRUCT       IndexRange  (2 fields)
+ 125  STRUCT       CollaborativeTextOpID  (2 fields)
+ 126  ENUM         CollaborativeTextOpType  (2 fields)
+ 127  MESSAGE      CollaborativeTextStrippedOpRunWithIDs  (4 fields)
+ 128  MESSAGE      CollaborativeTextStrippedOpRunWithLoc  (5 fields)
+ 129  MESSAGE      CollaborativeTextOpRun  (8 fields)
+ 130  MESSAGE      CollaborativePlainText  (4 fields)
+ 131  MESSAGE      CollaborativeTextSelection  (5 fields)
+ 132  MESSAGE      ResponsiveTextStyleVariant  (7 fields)
+ 133  ENUM         FlappType  (5 fields)
+ 134  MESSAGE      SlideThemeProps  (8 fields)
+ 135  MESSAGE      SlideThemeMap  (1 fields)
+ 136  MESSAGE      SlideThemeMapEntry  (2 fields)
+ 137  MESSAGE      SharedSymbolReference  (9 fields)
+ 138  MESSAGE      SharedComponentMasterData  (3 fields)
+ 139  MESSAGE      InstanceOverrideStash  (3 fields)
+ 140  MESSAGE      InstanceOverrideStashV2  (3 fields)
+ 141  MESSAGE      ImportedCodeFileEntry  (1 fields)
+ 142  MESSAGE      ImportedCodeFiles  (1 fields)
+ 143  ENUM         BlurOpType  (2 fields)
+ 144  ENUM         RepeatType  (2 fields)
+ 145  ENUM         UnitType  (2 fields)
+ 146  ENUM         RepeatOrder  (2 fields)
+ 147  ENUM         EffectAxis  (3 fields)
+ 148  MESSAGE      Effect  (55 fields)
+ 149  ENUM         TransformModifierType  (3 fields)
+ 150  MESSAGE      TransformModifier  (10 fields)
+ 151  ENUM         TransformSchemaType  (3 fields)
+ 152  STRUCT       Matrix4f  (16 fields)
+ 153  MESSAGE      FixedOrderTransform3d  (5 fields)
+ 154  ENUM         TransformFnType  (7 fields)
+ 155  MESSAGE      TransformFnValue  (4 fields)
+ 156  MESSAGE      TransformFn  (2 fields)
+ 157  MESSAGE      TransformSchemaValue  (2 fields)
+ 158  MESSAGE      Transform3d  (3 fields)
+ 159  STRUCT       NumberVector2D  (2 fields)
+ 160  MESSAGE      Scene3d  (3 fields)
+ 161  MESSAGE      TransformOrigin  (2 fields)
+ 162  MESSAGE      TransitionInfo  (2 fields)
+ 163  ENUM         PrototypeDeviceType  (4 fields)
+ 164  ENUM         DeviceRotation  (2 fields)
+ 165  MESSAGE      PrototypeDevice  (4 fields)
+ 166  ENUM         OverlayPositionType  (8 fields)
+ 167  ENUM         OverlayBackgroundInteraction  (2 fields)
+ 168  ENUM         OverlayBackgroundType  (2 fields)
+ 169  MESSAGE      OverlayBackgroundAppearance  (2 fields)
+ 170  ENUM         NavigationType  (5 fields)
+ 171  ENUM         ExportColorProfile  (4 fields)
+ 172  ENUM         ExportBackgroundType  (3 fields)
+ 173  MESSAGE      ExportSettings  (15 fields)
+ 174  ENUM         ExportSVGIDMode  (2 fields)
+ 175  MESSAGE      LayoutGrid  (13 fields)
+ 176  MESSAGE      Guide  (3 fields)
+ 177  MESSAGE      Path  (3 fields)
+ 178  ENUM         StyleType  (8 fields)
+ 179  ENUM         BrushOrientation  (2 fields)
+ 180  ENUM         BrushType  (2 fields)
+ 181  MESSAGE      DynamicStrokeSettings  (3 fields)
+ 182  MESSAGE      ScatterStrokeSettings  (5 fields)
+ 183  MESSAGE      StretchStrokeSettings  (1 fields)
+ 184  MESSAGE      StrokeData  (2 fields)
+ 185  MESSAGE      Stroke  (14 fields)
+ 186  MESSAGE      VariableWidthPoint  (4 fields)
+ 187  MESSAGE      SharedStyleReference  (2 fields)
+ 188  MESSAGE      SharedStyleMasterData  (3 fields)
+ 189  ENUM         ScrollBehavior  (3 fields)
+ 190  MESSAGE      ArcData  (3 fields)
+ 191  MESSAGE      SymbolLink  (3 fields)
+ 192  MESSAGE      PluginData  (3 fields)
+ 193  MESSAGE      PluginRelaunchData  (4 fields)
+ 194  MESSAGE      MultiplayerFieldVersion  (2 fields)
+ 195  ENUM         ConnectorMagnet  (10 fields)
+ 196  MESSAGE      ConnectorEndpoint  (4 fields)
+ 197  MESSAGE      ConnectorControlPoint  (2 fields)
+ 198  ENUM         ConnectorTextSection  (2 fields)
+ 199  ENUM         ConnectorOffAxisOffset  (3 fields)
+ 200  MESSAGE      ConnectorTextMidpoint  (3 fields)
+ 201  ENUM         ConnectorLineStyle  (3 fields)
+ 202  ENUM         ConnectorType  (2 fields)
+ 203  ENUM         AnnotationPropertyType  (33 fields)
+ 204  MESSAGE      AnnotationProperty  (1 fields)
+ 205  ENUM         AnnotationCategoryPreset  (6 fields)
+ 206  ENUM         AnnotationCategoryColor  (8 fields)
+ 207  MESSAGE      AnnotationCategoryCustom  (3 fields)
+ 208  MESSAGE      AnnotationCategory  (3 fields)
+ 209  MESSAGE      AnnotationCategories  (2 fields)
+ 210  MESSAGE      Annotation  (4 fields)
+ 211  ENUM         AnnotationMeasurementNodeSide  (4 fields)
+ 212  MESSAGE      AnnotationMeasurement  (9 fields)
+ 213  MESSAGE      LibraryMoveInfo  (2 fields)
+ 214  MESSAGE      LibraryMoveHistoryItem  (2 fields)
+ 215  MESSAGE      DeveloperRelatedLink  (4 fields)
+ 216  MESSAGE      WidgetPointer  (1 fields)
+ 217  MESSAGE      EditInfo  (4 fields)
+ 218  ENUM         EditorType  (9 fields)
+ 219  ENUM         MaskType  (3 fields)
+ 220  ENUM         ModuleType  (3 fields)
+ 221  ENUM         SectionStatus  (3 fields)
+ 222  MESSAGE      SectionStatusInfo  (5 fields)
+ 223  MESSAGE      BuzzApprovalRequestInfo  (7 fields)
+ 224  MESSAGE      BuzzApprovalRequests  (1 fields)
+ 225  ENUM         BuzzApprovalNodeStatus  (4 fields)
+ 226  MESSAGE      BuzzApprovalNodeStatusInfo  (3 fields)
+ 227  MESSAGE      CodeEmbedInfo  (5 fields)
+ 228  ENUM         VariableTimingDisplayUnit  (2 fields)
+ 229  MESSAGE      NodeChange  (587 fields)
+ 230  ENUM         GitRepoRefProvider  (3 fields)
+ 231  MESSAGE      GitRepoRef  (3 fields)
+ 232  MESSAGE      SourceControlConfig  (2 fields)
+ 233  MESSAGE      CodeSnapshot  (7 fields)
+ 234  MESSAGE      CodeBehaviorData  (5 fields)
+ 235  MESSAGE      CodeExample  (2 fields)
+ 236  MESSAGE      UsedMakeLibrary  (1 fields)
+ 237  MESSAGE      CookieBannerText  (18 fields)
+ 238  MESSAGE      CookieBannerSettings  (11 fields)
+ 239  ENUM         CookieBannerComponentType  (2 fields)
+ 240  ENUM         TriggerComponentType  (2 fields)
+ 241  ENUM         CookieXAlignment  (3 fields)
+ 242  ENUM         CookieYAlignment  (3 fields)
+ 243  MESSAGE      ResponsiveSetSettings  (21 fields)
+ 244  ENUM         ResponsiveScalingMode  (2 fields)
+ 245  MESSAGE      CMSSelector  (4 fields)
+ 246  MESSAGE      CMSFilterCritera  (2 fields)
+ 247  ENUM         CMSFilterCriteriaMatchType  (2 fields)
+ 248  MESSAGE      CMSSelectorFilter  (3 fields)
+ 249  ENUM         CMSSelectorFilterOperator  (1 fields)
+ 250  MESSAGE      CMSSelectorSort  (2 fields)
+ 251  ENUM         CMSFieldOrderBy  (2 fields)
+ 252  MESSAGE      CMSConsumptionMap  (1 fields)
+ 253  MESSAGE      CMSConsumptionMapEntry  (2 fields)
+ 254  ENUM         CMSConsumptionField  (2 fields)
+ 255  MESSAGE      CMSRichTextStyleMap  (1 fields)
+ 256  MESSAGE      CMSRichTextStyleEntry  (2 fields)
+ 257  ENUM         CMSRichTextStyleClass  (9 fields)
+ 258  MESSAGE      CMSRichTextDescriptor  (2 fields)
+ 259  MESSAGE      RepeaterCmsOverrideData  (1 fields)
+ 260  MESSAGE      RepeaterOverrideData  (1 fields)
+ 261  MESSAGE      RepeaterSymbolOverrideData  (1 fields)
+ 262  MESSAGE      RepeaterPositionOverrides  (2 fields)
+ 263  MESSAGE      InheritedVariablesData  (1 fields)
+ 264  MESSAGE      InheritedVariableEntry  (1 fields)
+ 265  MESSAGE      HubFileAttribution  (2 fields)
+ 266  MESSAGE      ManagedStringData  (5 fields)
+ 267  ENUM         ManagedStringContentSchema  (1 fields)
+ 268  ENUM         ManagedStringNodeType  (4 fields)
+ 269  MESSAGE      ManagedStringNode  (5 fields)
+ 270  MESSAGE      ManagedStringTextNodeData  (1 fields)
+ 271  MESSAGE      ManagedStringConcatenateAstNodeData  (1 fields)
+ 272  ENUM         ManagedStringPluralType  (6 fields)
+ 273  MESSAGE      ManagedStringPluralAstNodeData  (2 fields)
+ 274  MESSAGE      ManagedStringPluralTypeMapEntry  (2 fields)
+ 275  ENUM         ManagedStringFormatType  (4 fields)
+ 276  MESSAGE      ManagedStringPlaceholderAstNodeData  (3 fields)
+ 277  MESSAGE      CooperRevertData  (1 fields)
+ 278  MESSAGE      VideoPlayback  (6 fields)
+ 279  ENUM         MediaAction  (10 fields)
+ 280  ENUM         AnimationTimelineAction  (4 fields)
+ 281  MESSAGE      WidgetHoverStyle  (6 fields)
+ 282  MESSAGE      WidgetDerivedSubtreeCursor  (2 fields)
+ 283  MESSAGE      MultiplayerMap  (1 fields)
+ 284  MESSAGE      MultiplayerMapEntry  (2 fields)
+ 285  MESSAGE      VariableDataMap  (1 fields)
+ 286  MESSAGE      VariableDataMapEntry  (3 fields)
+ 287  ENUM         VariableField  (63 fields)
+ 288  MESSAGE      VariableModeBySetMap  (1 fields)
+ 289  MESSAGE      VariableModeBySetMapEntry  (3 fields)
+ 290  MESSAGE      CodeSyntaxMap  (1 fields)
+ 291  MESSAGE      CodeSyntaxMapEntry  (2 fields)
+ 292  MESSAGE      TableMergedCellMap  (1 fields)
+ 293  MESSAGE      TableMergedCellMapEntry  (4 fields)
+ 294  MESSAGE      TableRowColumnPositionMap  (1 fields)
+ 295  MESSAGE      TableRowColumnPositionMapEntry  (2 fields)
+ 296  MESSAGE      GUIDPositionMap  (1 fields)
+ 297  MESSAGE      GUIDPositionMapEntry  (2 fields)
+ 298  MESSAGE      GUIDGridTrackSizeMap  (1 fields)
+ 299  MESSAGE      GUIDGridTrackSizeMapEntry  (2 fields)
+ 300  MESSAGE      ObjectAnimationList  (1 fields)
+ 301  MESSAGE      ObjectAnimationListItem  (2 fields)
+ 302  MESSAGE      GridTrackSize  (2 fields)
+ 303  MESSAGE      GridTrackSizingFunction  (2 fields)
+ 304  ENUM         GridTrackSizingType  (3 fields)
+ 305  MESSAGE      TableRowColumnSizeMap  (1 fields)
+ 306  MESSAGE      TableRowColumnSizeMapEntry  (2 fields)
+ 307  MESSAGE      AgendaPositionMap  (1 fields)
+ 308  MESSAGE      AgendaPositionMapEntry  (2 fields)
+ 309  ENUM         AgendaItemType  (2 fields)
+ 310  MESSAGE      AgendaMetadataMap  (1 fields)
+ 311  MESSAGE      AgendaMetadataMapEntry  (2 fields)
+ 312  MESSAGE      AgendaMetadata  (6 fields)
+ 313  MESSAGE      AgendaTimerInfo  (1 fields)
+ 314  MESSAGE      AgendaVoteInfo  (1 fields)
+ 315  MESSAGE      AgendaMusicInfo  (2 fields)
+ 316  ENUM         DiagramLayoutRuleType  (2 fields)
+ 317  STRUCT       DiagramParentIndex  (2 fields)
+ 318  ENUM         DiagramLayoutPaused  (2 fields)
+ 319  MESSAGE      ComponentPropRef  (5 fields)
+ 320  ENUM         ComponentPropNodeField  (5 fields)
+ 321  MESSAGE      ComponentPropAssignment  (4 fields)
+ 322  MESSAGE      ComponentPropDef  (12 fields)
+ 323  MESSAGE      ComponentPropValue  (5 fields)
+ 324  MESSAGE      TimelineData  (4 fields)
+ 325  MESSAGE      TimelineDefinitionsMap  (1 fields)
+ 326  MESSAGE      TimelineDefinitionsMapEntry  (2 fields)
+ 327  MESSAGE      TimelineAssignmentKey  (2 fields)
+ 328  MESSAGE      TimelineBindingData  (2 fields)
+ 329  MESSAGE      TimelineAssignmentsMap  (1 fields)
+ 330  MESSAGE      TimelineAssignmentsMapEntry  (2 fields)
+ 331  ENUM         ComponentPropType  (9 fields)
+ 332  MESSAGE      ComponentPropPreferredValues  (2 fields)
+ 333  MESSAGE      ParameterConfig  (6 fields)
+ 334  ENUM         ParameterConfigControl  (4 fields)
+ 335  MESSAGE      InputConfig  (3 fields)
+ 336  MESSAGE      SliderConfig  (3 fields)
+ 337  MESSAGE      SelectOption  (2 fields)
+ 338  MESSAGE      SelectConfig  (1 fields)
+ 339  MESSAGE      SlotPropConfig  (5 fields)
+ 340  MESSAGE      NumberPropConfig  (4 fields)
+ 341  MESSAGE      InstanceSwapPreferredValue  (2 fields)
+ 342  ENUM         InstanceSwapPreferredValueType  (2 fields)
+ 343  ENUM         WidgetEvent  (5 fields)
+ 344  ENUM         WidgetInputBehavior  (3 fields)
+ 345  MESSAGE      WidgetMetadata  (5 fields)
+ 346  ENUM         WidgetPropertyMenuItemType  (7 fields)
+ 347  MESSAGE      WidgetPropertyMenuSelectorOption  (2 fields)
+ 348  ENUM         WidgetInputTextNodeType  (2 fields)
+ 349  MESSAGE      WidgetPropertyMenuItem  (9 fields)
+ 350  ENUM         CodeBlockLanguage  (17 fields)
+ 351  ENUM         CodeBlockTheme  (7 fields)
+ 352  ENUM         SpecBlockType  (20 fields)
+ 353  ENUM         InternalEnumForTest  (1 fields)
+ 354  MESSAGE      InternalDataForTest  (1 fields)
+ 355  MESSAGE      StateGroupPropertyValueOrder  (2 fields)
+ 356  MESSAGE      PartialPasteAnnotation  (2 fields)
+ 357  MESSAGE      VariantPropSpec  (2 fields)
+ 358  MESSAGE      TextListData  (4 fields)
+ 359  ENUM         BulletType  (4 fields)
+ 360  MESSAGE      TextLineData  (10 fields)
+ 361  MESSAGE      DerivedTextLineData  (1 fields)
+ 362  ENUM         LineType  (5 fields)
+ 363  ENUM         SourceDirectionality  (3 fields)
+ 364  ENUM         Directionality  (2 fields)
+ 365  ENUM         DirectionalityIntent  (2 fields)
+ 366  MESSAGE      PrototypeInteraction  (5 fields)
+ 367  MESSAGE      PrototypeEvent  (7 fields)
+ 368  MESSAGE      PrototypeVariableTarget  (2 fields)
+ 369  MESSAGE      ConditionalActions  (2 fields)
+ 370  MESSAGE      PrototypeAction  (42 fields)
+ 371  ENUM         AnimationPhase  (2 fields)
+ 372  ENUM         AnimationType  (6 fields)
+ 373  MESSAGE      AnimationState  (2 fields)
+ 374  MESSAGE      PrototypeStartingPoint  (3 fields)
+ 375  ENUM         TriggerDevice  (5 fields)
+ 376  MESSAGE      KeyTrigger  (2 fields)
+ 377  MESSAGE      Hyperlink  (4 fields)
+ 378  MESSAGE      CMSItemPageTarget  (3 fields)
+ 379  ENUM         MentionSource  (3 fields)
+ 380  MESSAGE      Mention  (8 fields)
+ 381  MESSAGE      EmbedData  (14 fields)
+ 382  MESSAGE      StampData  (3 fields)
+ 383  MESSAGE      LinkPreviewData  (8 fields)
+ 384  MESSAGE      Viewport  (4 fields)
+ 385  MESSAGE      Mouse  (5 fields)
+ 386  STRUCT       Click  (2 fields)
+ 387  STRUCT       ScrollPosition  (2 fields)
+ 388  STRUCT       TriggeredOverlay  (3 fields)
+ 389  MESSAGE      TriggeredOverlayData  (5 fields)
+ 390  MESSAGE      TriggeredSetVariableActionData  (4 fields)
+ 391  MESSAGE      TriggeredSetVariableModeActionData  (4 fields)
+ 392  MESSAGE      VideoStateChangeData  (5 fields)
+ 393  MESSAGE      EmbeddedPrototypeData  (2 fields)
+ 394  MESSAGE      PresentedState  (2 fields)
+ 395  ENUM         TransitionDirection  (2 fields)
+ 396  MESSAGE      TopLevelPlaybackChange  (7 fields)
+ 397  MESSAGE      InstanceStateChange  (5 fields)
+ 398  MESSAGE      TextCursor  (3 fields)
+ 399  MESSAGE      TextSelection  (7 fields)
+ 400  ENUM         PlaybackChangePhase  (3 fields)
+ 401  MESSAGE      PlaybackChangeKeyframe  (3 fields)
+ 402  MESSAGE      StateMapping  (4 fields)
+ 403  MESSAGE      ScrollMapping  (3 fields)
+ 404  MESSAGE      PlaybackUpdate  (7 fields)
+ 405  MESSAGE      ChatMessage  (2 fields)
+ 406  MESSAGE      VoiceMetadata  (1 fields)
+ 407  MESSAGE      AprilFunCursor  (2 fields)
+ 408  MESSAGE      AprilFunFigPal  (2 fields)
+ 409  ENUM         Heartbeat  (2 fields)
+ 410  ENUM         SitesViewState  (6 fields)
+ 411  ENUM         DesignFullPageViewState  (3 fields)
+ 412  MESSAGE      UserChange  (45 fields)
+ 413  MESSAGE      InteractiveSlideElementChange  (4 fields)
+ 414  MESSAGE      NodeStatusChange  (2 fields)
+ 415  MESSAGE      BuzzApprovalAssetEntry  (2 fields)
+ 416  MESSAGE      BuzzApprovalChange  (3 fields)
+ 417  ENUM         SceneGraphQueryBehavior  (3 fields)
+ 418  ENUM         SceneGraphQueryMode  (2 fields)
+ 419  MESSAGE      SceneGraphQuery  (3 fields)
+ 420  MESSAGE      NodeChangesMetadata  (1 fields)
+ 421  MESSAGE      CursorReaction  (1 fields)
+ 422  MESSAGE      TimerInfo  (8 fields)
+ 423  MESSAGE      MusicInfo  (5 fields)
+ 424  MESSAGE      PresenterNomination  (2 fields)
+ 425  MESSAGE      PresenterInfo  (3 fields)
+ 426  MESSAGE      ClientBroadcast  (6 fields)
+ 427  ENUM         PasteAssetType  (2 fields)
+ 428  MESSAGE      Message  (45 fields)
+ 429  MESSAGE      EncodedOffsetsIndex  (4 fields)
+ 430  STRUCT       GUIDAndEncodedOffset  (2 fields)
+ 431  MESSAGE      DiffChunk  (11 fields)
+ 432  ENUM         DiffType  (2 fields)
+ 433  MESSAGE      DiffPayload  (7 fields)
+ 434  ENUM         RichMediaType  (2 fields)
+ 435  MESSAGE      RichMediaData  (2 fields)
+ 436  ENUM         VariableDataType  (25 fields)
+ 437  ENUM         VariableResolvedDataType  (17 fields)
+ 438  MESSAGE      VariableAnyValue  (22 fields)
+ 439  ENUM         ExpressionFunction  (20 fields)
+ 440  MESSAGE      Expression  (2 fields)
+ 441  MESSAGE      VariableMapValue  (3 fields)
+ 442  MESSAGE      VariableMap  (1 fields)
+ 443  MESSAGE      VariableFontStyle  (3 fields)
+ 444  MESSAGE      ImageParameterValue  (7 fields)
+ 445  MESSAGE      ThumbnailInfo  (2 fields)
+ 446  MESSAGE      AiCanvasPrompt  (3 fields)
+ 447  MESSAGE      NodeFieldAlias  (3 fields)
+ 448  ENUM         NodeFieldAliasType  (2 fields)
+ 449  MESSAGE      CMSAlias  (4 fields)
+ 450  MESSAGE      JsRuntimeAlias  (1 fields)
+ 451  MESSAGE      PropRefValue  (1 fields)
+ 452  MESSAGE      ManagedStringId  (2 fields)
+ 453  MESSAGE      ManagedStringPlaceholderMapEntry  (2 fields)
+ 454  MESSAGE      SlotContentId  (1 fields)
+ 455  MESSAGE      ManagedStringAlias  (2 fields)
+ 456  MESSAGE      KeyframeTrackId  (2 fields)
+ 457  MESSAGE      AnimationPresetId  (2 fields)
+ 458  MESSAGE      ToolId  (2 fields)
+ 459  MESSAGE      CustomEffectId  (2 fields)
+ 460  MESSAGE      TRSSTransform2D  (4 fields)
+ 461  MESSAGE      VariableData  (3 fields)
+ 462  MESSAGE      VariableSetMode  (5 fields)
+ 463  MESSAGE      VariableDataValues  (1 fields)
+ 464  MESSAGE      VariableDataValuesEntry  (2 fields)
+ 465  ENUM         VariableScope  (23 fields)
+ 466  MESSAGE      KeyframeAnyValue  (4 fields)
+ 467  ENUM         KeyframeValueType  (5 fields)
+ 468  MESSAGE      KeyframeValueData  (2 fields)
+ 469  ENUM         KeyframeTrackParameterType  (3 fields)
+ 470  MESSAGE      ManualKeyframeTrackParameter  (2 fields)
+ 471  MESSAGE      AnimationPresetKeyframeTrackParameter  (3 fields)
+ 472  MESSAGE      KeyframeTrackAnyParameter  (3 fields)
+ 473  MESSAGE      KeyframeTrackParameter  (2 fields)
+ 474  MESSAGE      KeyframeTrackParameterValue  (1 fields)
+ 475  MESSAGE      AnimationPresets  (1 fields)
+ 476  MESSAGE      AnimationPresetData  (2 fields)
+ 477  MESSAGE      StyleAnimation  (1 fields)
+ 478  MESSAGE      StyleIdForAnimation  (4 fields)
+ 479  MESSAGE      Tools  (1 fields)
+ 480  MESSAGE      ToolData  (3 fields)
+ 481  MESSAGE      CustomEffects  (1 fields)
+ 482  MESSAGE      CustomEffectData  (1 fields)
+ 483  MESSAGE      SpringParams  (3 fields)
+ 484  MESSAGE      TransitionEasingAnyValue  (2 fields)
+ 485  MESSAGE      EasingData  (2 fields)
+ 486  MESSAGE      TransitionOverride  (10 fields)
+ 487  MESSAGE      TransitionOverrideData  (2 fields)
+ 488  ENUM         TransitionOverrideProp  (5 fields)
+ 489  ENUM         TransitionOverrideBindingTopLevelField  (5 fields)
+ 490  MESSAGE      TransitionOverrideBindingLocation  (4 fields)
+ 491  ENUM         KeyframeBindingEffectParametrizedField  (22 fields)
+ 492  MESSAGE      NodeContentsKeyframeBindingLocation  (4 fields)
+ 493  MESSAGE      TransitionOverridePropMap  (1 fields)
+ 494  MESSAGE      TransitionOverridePropMapEntry  (4 fields)
+ 495  ENUM         CodeSyntaxPlatform  (3 fields)
+ 496  MESSAGE      OptionalVector  (1 fields)
+ 497  ENUM         HTMLTag  (77 fields)
+ 498  ENUM         ARIARole  (96 fields)
+ 499  MESSAGE      MigrationStatus  (1 fields)
+ 500  MESSAGE      NodeFieldMap  (1 fields)
+ 501  MESSAGE      NodeFieldMapEntry  (3 fields)
+ 502  ENUM         ColorProfile  (2 fields)
+ 503  ENUM         DocumentColorProfile  (3 fields)
+ 504  ENUM         ChildReadingDirection  (3 fields)
+ 505  MESSAGE      ARIAAttributeAnyValue  (5 fields)
+ 506  ENUM         ARIAAttributeDataType  (5 fields)
+ 507  MESSAGE      ARIAAttributeData  (2 fields)
+ 508  MESSAGE      ARIAAttributesMap  (1 fields)
+ 509  MESSAGE      ARIAAttributesMapEntry  (2 fields)
+ 510  MESSAGE      HandoffStatusMapEntry  (2 fields)
+ 511  MESSAGE      HandoffStatusMap  (1 fields)
+ 512  MESSAGE      EditScopeInfo  (2 fields)
+ 513  MESSAGE      EditScopeSnapshot  (2 fields)
+ 514  MESSAGE      EditScopeStack  (1 fields)
+ 515  MESSAGE      EditScope  (3 fields)
+ 516  ENUM         EditScopeType  (9 fields)
+ 517  ENUM         SectionPresetState  (2 fields)
+ 518  ENUM         EmojiImageSet  (2 fields)
+ 519  ENUM         SelectionRegionFocusType  (3 fields)
+ 520  MESSAGE      SectionPresetInfo  (4 fields)
+ 521  MESSAGE      ClipboardSelectionRegion  (5 fields)
+ 522  ENUM         FirstDraftKitType  (3 fields)
+ 523  MESSAGE      FirstDraftKit  (2 fields)
+ 524  MESSAGE      FirstDraftData  (2 fields)
+ 525  ENUM         FirstDraftKitElementType  (3 fields)
+ 526  MESSAGE      FirstDraftKitElementData  (1 fields)
+ 527  ENUM         PlatformShapeProperty  (4 fields)
+ 528  ENUM         PlatformShapeBehaviorType  (3 fields)
+ 529  MESSAGE      PlatformShapePropertyMapEntry  (2 fields)
+ 530  MESSAGE      PlatformShapeDefinition  (3 fields)
+ 531  MESSAGE      NodeBehaviors  (10 fields)
+ 532  MESSAGE      BehaviorTransition  (6 fields)
+ 533  ENUM         AppearBehaviorTrigger  (4 fields)
+ 534  ENUM         RelativeDirection  (4 fields)
+ 535  MESSAGE      AppearBehavior  (10 fields)
+ 536  MESSAGE      HoverBehavior  (3 fields)
+ 537  MESSAGE      PressBehavior  (3 fields)
+ 538  MESSAGE      FocusBehavior  (3 fields)
+ 539  MESSAGE      ScrollParallaxBehavior  (5 fields)
+ 540  ENUM         ScrollTransformBehaviorTrigger  (3 fields)
+ 541  MESSAGE      ScrollTransformBehavior  (9 fields)
+ 542  MESSAGE      CursorBehavior  (4 fields)
+ 543  MESSAGE      MarqueeBehavior  (7 fields)
+ 544  MESSAGE      CodeBehavior  (3 fields)
+ 545  MESSAGE      ClientRenderedMetadata  (4 fields)
+ 546  ENUM         LinkBehaviorType  (2 fields)
+ 547  MESSAGE      LinkBehavior  (4 fields)
+ 548  MESSAGE      VariableIdOrVariableOverrideId  (2 fields)
+ 549  STRUCT       IndexFontVariationAxis  (5 fields)
+ 550  STRUCT       IndexFontVariationAxisValue  (2 fields)
+ 551  MESSAGE      IndexFontStyle  (6 fields)
+ 552  MESSAGE      IndexFontFile  (6 fields)
+ 553  STRUCT       IndexFamilyRename  (2 fields)
+ 554  STRUCT       IndexStyleRename  (2 fields)
+ 555  STRUCT       IndexFamilyStylesRename  (2 fields)
+ 556  STRUCT       IndexRenames  (2 fields)
+ 557  STRUCT       IndexEmojiSequence  (1 fields)
+ 558  STRUCT       IndexEmojis  (3 fields)
+ 559  MESSAGE      FontIndex  (4 fields)
+ 560  MESSAGE      SlideThemeData  (2 fields)
+ 561  ENUM         SlideNumber  (6 fields)
+ 562  ENUM         NodeChatMessageType  (4 fields)
+ 563  MESSAGE      NodeChatMessage  (8 fields)
+ 564  MESSAGE      NodeChatToolCall  (3 fields)
+ 565  MESSAGE      NodeChatToolResult  (3 fields)
+ 566  MESSAGE      NodeChatExchange  (4 fields)
+ 567  MESSAGE      NodeChatCompressionState  (2 fields)
+ 568  MESSAGE      FileUpdate  (3 fields)
+ 569  MESSAGE      AIChatContentPart  (2 fields)
+ 570  ENUM         AIChatContentPartType  (3 fields)
+ 571  MESSAGE      AIChatContentPartAnyValue  (2 fields)
+ 572  ENUM         AIChatMessageRole  (4 fields)
+ 573  MESSAGE      AIChatMessage  (5 fields)
+ 574  MESSAGE      AIChatThread  (1 fields)
+ 575  ENUM         CooperTemplateType  (65 fields)
+ 576  MESSAGE      CooperTemplateData  (1 fields)
+ 577  MESSAGE      ImageImportMap  (1 fields)
+ 578  MESSAGE      ImageImport  (2 fields)
+ 579  ENUM         InterpolationType  (3 fields)
+ 580  MESSAGE      BezierHandles  (4 fields)
+ 581  ENUM         KeyframeOperation  (3 fields)
+ 582  ENUM         TimelinePositionType  (2 fields)
+ 583  ENUM         PlaybackStyle  (3 fields)
+
+=== INTERESTING DEFINITIONS (164) ===
+
+ENUM NodePhase {
+  CREATED = 0
+  REMOVED = 1
+}
+
+ENUM NodeType {
+  NONE = 0
+  DOCUMENT = 1
+  CANVAS = 2
+  GROUP = 3
+  FRAME = 4
+  BOOLEAN_OPERATION = 5
+  VECTOR = 6
+  STAR = 7
+  LINE = 8
+  ELLIPSE = 9
+  RECTANGLE = 10
+  REGULAR_POLYGON = 11
+  ROUNDED_RECTANGLE = 12
+  TEXT = 13
+  SLICE = 14
+  SYMBOL = 15
+  INSTANCE = 16
+  STICKY = 17
+  SHAPE_WITH_TEXT = 18
+  CONNECTOR = 19
+  CODE_BLOCK = 20
+  WIDGET = 21
+  STAMP = 22
+  MEDIA = 23
+  HIGHLIGHT = 24
+  SECTION = 25
+  SECTION_OVERLAY = 26
+  WASHI_TAPE = 27
+  VARIABLE = 28
+  TABLE = 29
+  TABLE_CELL = 30
+  VARIABLE_SET = 31
+  SLIDE = 32
+  ASSISTED_LAYOUT = 33
+  INTERACTIVE_SLIDE_ELEMENT = 34
+  VARIABLE_OVERRIDE = 35
+  MODULE = 36
+  SLIDE_GRID = 37
+  SLIDE_ROW = 38
+  RESPONSIVE_SET = 39
+  CODE_COMPONENT = 40
+  TEXT_PATH = 41
+  CODE_INSTANCE = 42
+  CODE_LIBRARY = 43
+  CODE_FILE = 44
+  CODE_LAYER = 45
+  BRUSH = 46
+  MANAGED_STRING = 47
+  TRANSFORM = 48
+  CMS_RICH_TEXT = 49
+  REPEATER = 50
+  JSX = 51
+  EMBEDDED_PROTOTYPE = 52
+  REACT_FIBER = 53
+  RESPONSIVE_NODE_SET = 54
+  WEBPAGE = 55
+  KEYFRAME = 56
+  KEYFRAME_TRACK = 57
+  ANIMATION_PRESET_INSTANCE = 58
+  CODE_EMBED = 59
+  BINARY_FILE = 60
+  SPEC_BLOCK = 61
+  TOOL_INSTANCE = 62
+  CUSTOM_EFFECT_INSTANCE = 63
+  NATIVE_CODE_LAYER_INSTANCE = 64
+}
+
+ENUM ShapeWithTextType {
+  SQUARE = 0
+  ELLIPSE = 1
+  DIAMOND = 2
+  TRIANGLE_UP = 3
+  TRIANGLE_DOWN = 4
+  ROUNDED_RECTANGLE = 5
+  PARALLELOGRAM_RIGHT = 6
+  PARALLELOGRAM_LEFT = 7
+  ENG_DATABASE = 8
+  ENG_QUEUE = 9
+  ENG_FILE = 10
+  ENG_FOLDER = 11
+  TRAPEZOID = 12
+  PREDEFINED_PROCESS = 13
+  SHIELD = 14
+  DOCUMENT_SINGLE = 15
+  DOCUMENT_MULTIPLE = 16
+  MANUAL_INPUT = 17
+  HEXAGON = 18
+  CHEVRON = 19
+  PENTAGON = 20
+  OCTAGON = 21
+  STAR = 22
+  PLUS = 23
+  ARROW_LEFT = 24
+  ARROW_RIGHT = 25
+  SUMMING_JUNCTION = 26
+  OR = 27
+  SPEECH_BUBBLE = 28
+  INTERNAL_STORAGE = 29
+}
+
+ENUM BlendMode {
+  PASS_THROUGH = 0
+  NORMAL = 1
+  DARKEN = 2
+  MULTIPLY = 3
+  LINEAR_BURN = 4
+  COLOR_BURN = 5
+  LIGHTEN = 6
+  SCREEN = 7
+  LINEAR_DODGE = 8
+  COLOR_DODGE = 9
+  OVERLAY = 10
+  SOFT_LIGHT = 11
+  HARD_LIGHT = 12
+  DIFFERENCE = 13
+  EXCLUSION = 14
+  HUE = 15
+  SATURATION = 16
+  COLOR = 17
+  LUMINOSITY = 18
+}
+
+ENUM PaintType {
+  SOLID = 0
+  GRADIENT_LINEAR = 1
+  GRADIENT_RADIAL = 2
+  GRADIENT_ANGULAR = 3
+  GRADIENT_DIAMOND = 4
+  IMAGE = 5
+  EMOJI = 6
+  VIDEO = 7
+  PATTERN = 8
+  NOISE = 9
+  CUSTOM = 10
+}
+
+ENUM ImageScaleMode {
+  STRETCH = 0
+  FIT = 1
+  FILL = 2
+  TILE = 3
+}
+
+ENUM EffectType {
+  INNER_SHADOW = 0
+  DROP_SHADOW = 1
+  FOREGROUND_BLUR = 2
+  BACKGROUND_BLUR = 3
+  REPEAT = 4
+  SYMMETRY = 5
+  GRAIN = 6
+  NOISE = 7
+  GLASS = 8
+  CUSTOM = 9
+}
+
+ENUM TextCase {
+  ORIGINAL = 0
+  UPPER = 1
+  LOWER = 2
+  TITLE = 3
+  SMALL_CAPS = 4
+  SMALL_CAPS_FORCED = 5
+}
+
+ENUM TextDecoration {
+  NONE = 0
+  UNDERLINE = 1
+  STRIKETHROUGH = 2
+}
+
+ENUM TextDecorationStyle {
+  SOLID = 0
+  DOTTED = 1
+  WAVY = 2
+}
+
+ENUM ConstraintType {
+  MIN = 0
+  CENTER = 1
+  MAX = 2
+  STRETCH = 3
+  SCALE = 4
+  FIXED_MIN = 5
+  FIXED_MAX = 6
+}
+
+ENUM StrokeAlign {
+  CENTER = 0
+  INSIDE = 1
+  OUTSIDE = 2
+  OFFSET = 3
+}
+
+ENUM StrokeCap {
+  NONE = 0
+  ROUND = 1
+  SQUARE = 2
+  ARROW_LINES = 3
+  ARROW_EQUILATERAL = 4
+  DIAMOND_FILLED = 5
+  TRIANGLE_FILLED = 6
+  HIGHLIGHT = 7
+  WASHI_TAPE_1 = 8
+  WASHI_TAPE_2 = 9
+  WASHI_TAPE_3 = 10
+  WASHI_TAPE_4 = 11
+  WASHI_TAPE_5 = 12
+  WASHI_TAPE_6 = 13
+  CIRCLE_FILLED = 14
+  ERD_ZERO_OR_ONE = 15
+  ERD_EXACTLY_ONE = 16
+  ERD_ZERO_OR_MORE = 17
+  ERD_ONE_OR_MORE = 18
+  ERD_ONE = 19
+  ERD_MANY = 20
+}
+
+ENUM StrokeJoin {
+  MITER = 0
+  BEVEL = 1
+  ROUND = 2
+}
+
+ENUM TextAlignHorizontal {
+  LEFT = 0
+  CENTER = 1
+  RIGHT = 2
+  JUSTIFIED = 3
+}
+
+ENUM TextAlignVertical {
+  TOP = 0
+  CENTER = 1
+  BOTTOM = 2
+}
+
+ENUM VectorMirror {
+  NONE = 0
+  ANGLE = 1
+  ANGLE_AND_LENGTH = 2
+}
+
+ENUM ImageType {
+  PNG = 0
+  JPEG = 1
+  SVG = 2
+  PDF = 3
+  MP4 = 4
+  GIF = 5
+}
+
+ENUM ExportConstraintType {
+  CONTENT_SCALE = 0
+  CONTENT_WIDTH = 1
+  CONTENT_HEIGHT = 2
+}
+
+ENUM LayoutGridType {
+  MIN = 0
+  CENTER = 1
+  STRETCH = 2
+  MAX = 3
+}
+
+ENUM LayoutGridPattern {
+  STRIPES = 0
+  GRID = 1
+}
+
+ENUM TextAutoResize {
+  NONE = 0
+  WIDTH_AND_HEIGHT = 1
+  HEIGHT = 2
+}
+
+ENUM TextTruncation {
+  DISABLED = 0
+  ENDING = 1
+}
+
+ENUM StyleSetType {
+  PERSONAL = 0
+  TEAM = 1
+  CUSTOM = 2
+  FREQUENCY = 3
+  TEMPORARY = 4
+}
+
+ENUM StyleSetContentType {
+  SOLID = 0
+  GRADIENT = 1
+  IMAGE = 2
+}
+
+ENUM StackAlign {
+  MIN = 0
+  CENTER = 1
+  MAX = 2
+  BASELINE = 3
+}
+
+ENUM StackCounterAlign {
+  MIN = 0
+  CENTER = 1
+  MAX = 2
+  STRETCH = 3
+  AUTO = 4
+  BASELINE = 5
+}
+
+ENUM GridChildAlign {
+  AUTO = 0
+  MIN = 1
+  CENTER = 2
+  MAX = 3
+}
+
+ENUM GridAutoTracks {
+  NONE = 0
+  ROWS = 1
+}
+
+ENUM StackWrap {
+  NO_WRAP = 0
+  WRAP = 1
+}
+
+ENUM StackCounterAlignContent {
+  AUTO = 0
+  SPACE_BETWEEN = 1
+}
+
+STRUCT GUID {
+  [1] sessionID: uint
+  [2] localID: uint
+}
+
+STRUCT Color {
+  [1] r: float
+  [2] g: float
+  [3] b: float
+  [4] a: float
+}
+
+STRUCT Vector {
+  [1] x: float
+  [2] y: float
+}
+
+STRUCT Rect {
+  [1] x: float
+  [2] y: float
+  [3] w: float
+  [4] h: float
+}
+
+STRUCT ColorStop {
+  [1] color: Color
+  [2] position: float
+}
+
+MESSAGE ColorStopVar {
+  [1] color: Color
+  [2] colorVar: VariableData
+  [3] position: float
+}
+
+STRUCT FontName {
+  [1] family: string
+  [2] style: string
+  [3] postscript: string
+}
+
+ENUM FontVariantNumericFigure {
+  NORMAL = 0
+  LINING = 1
+  OLDSTYLE = 2
+}
+
+ENUM FontVariantNumericSpacing {
+  NORMAL = 0
+  PROPORTIONAL = 1
+  TABULAR = 2
+}
+
+ENUM FontVariantNumericFraction {
+  NORMAL = 0
+  DIAGONAL = 1
+  STACKED = 2
+}
+
+ENUM FontVariantCaps {
+  NORMAL = 0
+  SMALL = 1
+  ALL_SMALL = 2
+  PETITE = 3
+  ALL_PETITE = 4
+  UNICASE = 5
+  TITLING = 6
+}
+
+ENUM FontVariantPosition {
+  NORMAL = 0
+  SUB = 1
+  SUPER = 2
+}
+
+ENUM FontStyle {
+  NORMAL = 0
+  ITALIC = 1
+}
+
+ENUM SnapshotCaptureMode {
+  FULL = 0
+  PARTIAL = 1
+}
+
+STRUCT ExportConstraint {
+  [1] type: ExportConstraintType
+  [2] value: float
+}
+
+STRUCT GUIDMapping {
+  [1] from: GUID
+  [2] to: GUID
+}
+
+MESSAGE Image {
+  [1] hash: byte[]
+  [2] name: string
+  [3] dataBlob: uint
+}
+
+STRUCT FilterColorAdjust {
+  [1] tint: float
+  [2] shadows: float
+  [3] highlights: float
+  [4] detail: float
+  [5] exposure: float
+  [6] vignette: float
+  [7] temperature: float
+  [8] vibrance: float
+}
+
+MESSAGE PaintFilterMessage {
+  [1] tint: float
+  [2] shadows: float
+  [3] highlights: float
+  [4] detail: float
+  [5] exposure: float
+  [6] vignette: float
+  [7] temperature: float
+  [8] vibrance: float
+  [9] contrast: float
+  [10] brightness: float
+}
+
+MESSAGE Paint {
+  [1] type: PaintType
+  [2] color: Color
+  [3] opacity: float
+  [4] visible: bool
+  [5] blendMode: BlendMode
+  [6] stops: ColorStop[]
+  [7] transform: Matrix
+  [8] image: Image
+  [9] imageThumbnail: Image
+  [16] animatedImage: Image
+  [17] animationFrame: uint
+  [10] imageScaleMode: ImageScaleMode
+  [22] imageShouldColorManage: bool
+  [11] rotation: float
+  [12] scale: float
+  [13] filterColorAdjust: FilterColorAdjust
+  [14] paintFilter: PaintFilterMessage
+  [15] emojiCodePoints: uint[]
+  [18] video: Video
+  [19] originalImageWidth: uint
+  [20] originalImageHeight: uint
+  [38] opacityVar: VariableData
+  [21] colorVar: VariableData
+  [31] imageVar: VariableData
+  [23] stopsVar: ColorStopVar[]
+  [24] thumbHashBase64: string
+  [25] thumbHash: byte[]
+  [26] sourceNodeId: GUID
+  [27] spacing: float
+  [37] patternSpacing: Vector
+  [28] patternTileType: PatternTileType
+  [29] verticalAlignment: PatternAlignment
+  [30] horizontalAlignment: PatternAlignment
+  [32] id: GUID
+  [33] altText: string
+  [34] noiseType: NoiseType
+  [35] density: float
+  [36] noiseSize: Vector
+  [39] customEffectId: CodeComponentId
+  [40] componentPropAssignments: ComponentPropAssignment[]
+}
+
+ENUM PatternAlignment {
+  START = 0
+  CENTER = 1
+  END = 2
+}
+
+MESSAGE FontMetaData {
+  [1] key: FontName
+  [2] fontLineHeight: float
+  [3] fontDigest: byte[]
+  [4] fontStyle: FontStyle
+  [5] fontWeight: int
+}
+
+MESSAGE FontVariation {
+  [1] axisTag: uint
+  [2] axisName: string
+  [3] value: float
+}
+
+MESSAGE TextData {
+  [1] characters: string
+  [2] characterStyleIDs: uint[]
+  [3] styleOverrideTable: NodeChange[]
+  [12] lines: TextLineData[]
+  [8] layoutVersion: uint
+  [10] fallbackFonts: FontName[]
+  [17] minContentHeight: float
+  [4] layoutSize: Vector
+  [5] baselines: Baseline[]
+  [6] glyphs: Glyph[]
+  [7] decorations: Decoration[]
+  [16] blockquotes: Blockquote[]
+  [9] fontMetaData: FontMetaData[]
+  [11] hyperlinkBoxes: HyperlinkBox[]
+  [13] truncationStartIndex: int
+  [14] truncatedHeight: float
+  [15] logicalIndexToCharacterOffsetMap: float[]
+  [18] mentionBoxes: MentionBox[]
+  [19] derivedLines: DerivedTextLineData[]
+}
+
+MESSAGE DerivedTextData {
+  [1] layoutSize: Vector
+  [2] baselines: Baseline[]
+  [3] glyphs: Glyph[]
+  [4] decorations: Decoration[]
+  [5] blockquotes: Blockquote[]
+  [6] fontMetaData: FontMetaData[]
+  [7] hyperlinkBoxes: HyperlinkBox[]
+  [8] truncationStartIndex: int
+  [9] truncatedHeight: float
+  [10] logicalIndexToCharacterOffsetMap: float[]
+  [11] mentionBoxes: MentionBox[]
+  [12] derivedLines: DerivedTextLineData[]
+}
+
+MESSAGE VectorData {
+  [1] vectorNetworkBlob: uint
+  [2] normalizedSize: Vector
+  [3] styleOverrideTable: NodeChange[]
+}
+
+MESSAGE TextPathStart {
+  [1] tValue: float
+  [2] forward: bool
+}
+
+MESSAGE GUIDPath {
+  [1] guids: GUID[]
+}
+
+MESSAGE GUIDPathMapping {
+  [1] id: GUID
+  [2] path: GUIDPath
+}
+
+MESSAGE NodeGenerationData {
+  [1] overrides: NodeChange[]
+  [2] useFineGrainedSyncing: bool
+  [3] diffOnlyRemovals: NodeChange[]
+}
+
+MESSAGE DerivedImmutableFrameData {
+  [1] overrides: NodeChange[]
+  [2] version: uint
+}
+
+MESSAGE StyleId {
+  [1] guid: GUID
+  [2] assetRef: AssetRef
+}
+
+MESSAGE CanvasNodeId {
+  [1] guid: GUID
+  [2] symbolId: SymbolId
+  [3] stateGroupId: StateGroupId
+}
+
+STRUCT CollaborativeTextOpID {
+  [1] sessionID: uint
+  [2] counterID: uint
+}
+
+ENUM CollaborativeTextOpType {
+  INSERT = 0
+  DELETE = 1
+}
+
+MESSAGE CollaborativeTextStrippedOpRunWithIDs {
+  [1] firstId: CollaborativeTextOpID
+  [2] runLength: uint
+  [3] parentIds: CollaborativeTextOpID[]
+  [4] rebasedOnOpIds: CollaborativeTextOpID[]
+}
+
+MESSAGE CollaborativeTextStrippedOpRunWithLoc {
+  [1] type: CollaborativeTextOpType
+  [2] range: IndexRange
+  [3] rangeShouldBeIteratedInReverse: bool
+  [4] contentBytesInBuffer: IndexRange
+  [5] rebasedRange: IndexRange
+}
+
+MESSAGE CollaborativeTextOpRun {
+  [1] id: CollaborativeTextOpID
+  [2] parentIds: CollaborativeTextOpID[]
+  [3] type: CollaborativeTextOpType
+  [4] range: IndexRange
+  [5] rangeShouldBeIteratedInReverse: bool
+  [6] content: string
+  [7] rebasedOnOpIds: CollaborativeTextOpID[]
+  [8] rebasedRange: IndexRange
+}
+
+MESSAGE CollaborativePlainText {
+  [1] historyOpsWithIds: CollaborativeTextStrippedOpRunWithIDs[]
+  [2] historyOpsWithLoc: CollaborativeTextStrippedOpRunWithLoc[]
+  [3] historyStringContentBuffer: byte[]
+  [4] changesToAppend: CollaborativeTextOpRun[]
+}
+
+MESSAGE CollaborativeTextSelection {
+  [1] node: GUID
+  [2] field: uint
+  [3] selectedRange: IndexRange
+  [4] caretAtFront: bool
+  [5] textVersion: CollaborativeTextOpID[]
+}
+
+MESSAGE ResponsiveTextStyleVariant {
+  [1] minWidth: float
+  [2] fields: NodeChange
+  [3] variableFontSize: VariableData
+  [4] variableLineHeight: VariableData
+  [5] variableLetterSpacing: VariableData
+  [6] variableParagraphSpacing: VariableData
+  [7] name: string
+}
+
+ENUM EffectAxis {
+  X = 0
+  Y = 1
+  X_AND_Y = 2
+}
+
+MESSAGE Effect {
+  [1] type: EffectType
+  [3] offset: Vector
+  [4] radius: float
+  [5] visible: bool
+  [6] blendMode: BlendMode
+  [7] spread: float
+  [8] showShadowBehindNode: bool
+  [9] radiusVar: VariableData
+  [10] colorVar: VariableData
+  [11] spreadVar: VariableData
+  [12] xVar: VariableData
+  [13] yVar: VariableData
+  [14] count: uint
+  [15] repeatType: RepeatType
+  [16] axis: EffectAxis
+  [17] unitType: UnitType
+  [18] order: RepeatOrder
+  [19] blurOpType: BlurOpType
+  [20] startOffset: Vector
+  [28] endOffset: Vector
+  [21] startRadius: float
+  [2] color: Color
+  [24] secondaryColor: Color
+  [22] noiseSize: Vector
+  [29] seed: uint
+  [23] clipToShape: bool
+  [25] density: float
+  [26] noiseType: NoiseType
+  [27] opacity: float
+  [30] refractionRadius: float
+  [31] specularAngle: float
+  [32] specularIntensity: float
+  [33] bevelSize: float
+  [34] chromaticAberration: float
+  [35] reflectionDistance: float
+  [36] refractionIntensity: float
+  [37] refractionRadiusVar: VariableData
+  [38] specularAngleVar: VariableData
+  [39] specularIntensityVar: VariableData
+  [40] chromaticAberrationVar: VariableData
+  [41] splayVar: VariableData
+  [42] refractionIntensityVar: VariableData
+  [43] customEffectId: CodeComponentId
+  [44] componentPropAssignments: ComponentPropAssignment[]
+  [45] startRadiusVar: VariableData
+  [46] startOffsetXVar: VariableData
+  [47] startOffsetYVar: VariableData
+  [48] endOffsetXVar: VariableData
+  [49] endOffsetYVar: VariableData
+  [50] noiseSizeXVar: VariableData
+  [51] noiseSizeYVar: VariableData
+  [52] densityVar: VariableData
+  [53] effectOpacityVar: VariableData
+  [54] secondaryColorVar: VariableData
+  [55] id: GUID
+}
+
+STRUCT NumberVector2D {
+  [1] x: Number
+  [2] y: Number
+}
+
+ENUM OverlayBackgroundInteraction {
+  NONE = 0
+  CLOSE_ON_CLICK_OUTSIDE = 1
+}
+
+ENUM OverlayBackgroundType {
+  NONE = 0
+  SOLID_COLOR = 1
+}
+
+MESSAGE OverlayBackgroundAppearance {
+  [1] backgroundType: OverlayBackgroundType
+  [2] backgroundColor: Color
+}
+
+ENUM ExportColorProfile {
+  DOCUMENT = 0
+  SRGB = 1
+  DISPLAY_P3_V4 = 2
+  CMYK = 3
+}
+
+ENUM ExportBackgroundType {
+  SOLID = 0
+  TRANSPARENT = 1
+  GRID = 2
+}
+
+MESSAGE LayoutGrid {
+  [1] type: LayoutGridType
+  [2] axis: Axis
+  [3] visible: bool
+  [4] numSections: int
+  [5] offset: float
+  [6] sectionSize: float
+  [7] gutterSize: float
+  [8] color: Color
+  [9] pattern: LayoutGridPattern
+  [10] numSectionsVar: VariableData
+  [11] offsetVar: VariableData
+  [12] sectionSizeVar: VariableData
+  [13] gutterSizeVar: VariableData
+}
+
+ENUM StyleType {
+  NONE = 0
+  FILL = 1
+  STROKE = 2
+  TEXT = 3
+  EFFECT = 4
+  EXPORT = 5
+  GRID = 6
+  ANIMATION = 7
+}
+
+MESSAGE DynamicStrokeSettings {
+  [1] frequency: float
+  [2] wiggle: float
+  [3] smoothen: float
+}
+
+MESSAGE ScatterStrokeSettings {
+  [1] gap: float
+  [2] wiggle: float
+  [3] angularJitter: float
+  [4] rotation: float
+  [5] sizeJitter: float
+}
+
+MESSAGE StretchStrokeSettings {
+  [1] orientation: BrushOrientation
+}
+
+MESSAGE StrokeData {
+  [1] strokes: Stroke[]
+  [2] version: uint
+}
+
+MESSAGE Stroke {
+  [1] strokeId: int
+  [2] strokeWeight: float
+  [3] strokeWeightVar: VariableData
+  [4] strokePaint: Paint[]
+  [5] styleIdForStrokeFill: StyleId
+  [6] strokeAlign: StrokeAlign
+  [7] strokeCap: StrokeCap
+  [8] strokeCapSize: Number
+  [9] strokeJoin: StrokeJoin
+  [10] miterLimit: float
+  [11] dashPattern: float[]
+  [12] pathTrim: OptionalVector
+  [13] strokeOffset: float
+  [14] isDeleted: bool
+}
+
+MESSAGE SharedStyleReference {
+  [1] styleKey: string
+  [2] versionHash: string
+}
+
+MESSAGE SharedStyleMasterData {
+  [1] styleKey: string
+  [2] sortPosition: string
+  [3] fileKey: string
+}
+
+ENUM ConnectorTextSection {
+  MIDDLE_TO_START = 0
+  MIDDLE_TO_END = 1
+}
+
+MESSAGE ConnectorTextMidpoint {
+  [1] section: ConnectorTextSection
+  [2] offset: float
+  [3] offAxisOffset: ConnectorOffAxisOffset
+}
+
+ENUM ConnectorLineStyle {
+  ELBOWED = 0
+  STRAIGHT = 1
+  CURVED = 2
+}
+
+ENUM AnnotationCategoryColor {
+  YELLOW = 0
+  ORANGE = 1
+  RED = 2
+  PINK = 3
+  VIOLET = 4
+  BLUE = 5
+  TEAL = 6
+  GREEN = 7
+}
+
+ENUM AnnotationMeasurementNodeSide {
+  TOP = 0
+  BOTTOM = 1
+  LEFT = 2
+  RIGHT = 3
+}
+
+ENUM BuzzApprovalNodeStatus {
+  NONE = 0
+  IN_REVIEW = 1
+  APPROVED = 2
+  CHANGES_REQUESTED = 3
+}
+
+MESSAGE BuzzApprovalNodeStatusInfo {
+  [1] currentStatus: BuzzApprovalNodeStatus
+  [2] wasPreviouslyApproved: bool
+  [3] approvalRevokedAtHistory: uint[]
+}
+
+MESSAGE NodeChange {
+  [1] guid: GUID
+  [53] guidTag: uint
+  [2] phase: NodePhase
+  [54] phaseTag: uint
+  [3] parentIndex: ParentIndex
+  [55] parentIndexTag: uint
+  [4] type: NodeType
+  [56] typeTag: uint
+  [5] name: string
+  [57] nameTag: uint
+  [174] isPublishable: bool
+  [318] description: string
+  [256] libraryMoveInfo: LibraryMoveInfo
+  [281] libraryMoveHistory: LibraryMoveHistoryItem[]
+  [319] key: string
+  [383] fileAssetIds: AssetIdMap
+  [49] styleID: uint
+  [101] styleIDTag: uint
+  [157] isFillStyle: bool
+  [161] isStrokeStyle: bool
+  [376] isOverrideOverTextStyle: bool
+  [163] styleType: StyleType
+  [191] styleDescription: string
+  [171] version: string
+  [399] userFacingVersion: string
+  [320] sortPosition: string
+  [345] ojansSuperSecretNodeField: SharedStyleMasterData
+  [348] sevMoonlitLilyData: SharedStyleMasterData
+  [176] isSoftDeletedStyle: bool
+  [177] isNonUpdateable: bool
+  [172] sharedStyleMasterData: SharedStyleMasterData
+  [173] sharedStyleReference: SharedStyleReference
+  [158] inheritFillStyleID: GUID
+  [162] inheritStrokeStyleID: GUID
+  [167] inheritTextStyleID: GUID
+  [168] inheritExportStyleID: GUID
+  [169] inheritEffectStyleID: GUID
+  [170] inheritGridStyleID: GUID
+  [185] inheritFillStyleIDForStroke: GUID
+  [332] styleIdForFill: StyleId
+  [333] styleIdForStrokeFill: StyleId
+  [334] styleIdForText: StyleId
+  [335] styleIdForEffect: StyleId
+  [336] styleIdForGrid: StyleId
+  [580] styleAnimations: StyleAnimation[]
+  [193] backgroundPaints: Paint[]
+  [194] inheritFillStyleIDForBackground: GUID
+  [225] isStateGroup: bool
+  [238] stateGroupPropertyValueOrders: StateGroupPropertyValueOrder[]
+  [581] partialPasteAnnotation: PartialPasteAnnotation
+  [122] sharedSymbolReference: SharedSymbolReference
+  [123] isSymbolPublishable: bool
+  [124] sharedSymbolMappings: GUIDPathMapping[]
+  [126] sharedSymbolVersion: string
+  [152] sharedComponentMasterData: SharedComponentMasterData
+  [144] symbolDescription: string
+  [164] unflatteningMappings: GUIDPathMapping[]
+  [228] forceUnflatteningMappings: GUIDPathMapping[]
+  [214] publishFile: string
+  [395] sourceLibraryKey: string
+  [215] publishID: GUID
+  [216] componentKey: string
+  [217] isC2: bool
+  [218] publishedVersion: string
+  [252] originComponentKey: string
+  [266] componentPropDefs: ComponentPropDef[]
+  [267] componentPropRefs: ComponentPropRef[]
+  [483] variantPropSpecs: VariantPropSpec[]
+  [113] symbolData: SymbolData
+  [114] symbolDataTag: uint
+  [125] derivedSymbolData: NodeChange[]
+  [394] nestedInstanceResizeEnabled: bool
+  [143] overriddenSymbolID: GUID
+  [268] componentPropAssignments: ComponentPropAssignment[]
+  [305] propsAreBubbled: bool
+  [248] overrideStash: InstanceOverrideStash[]
+  [250] overrideStashV2: InstanceOverrideStashV2[]
+  [111] guidPath: GUIDPath
+  [112] guidPathTag: uint
+  [321] overrideLevel: int
+  [382] moduleType: ModuleType
+  [463] isSlot: bool
+  [495] isSlotContent: bool
+  [21] fontSize: float
+  [73] fontSizeTag: uint
+  [22] paragraphIndent: float
+  [74] paragraphIndentTag: uint
+  [23] paragraphSpacing: float
+  [75] paragraphSpacingTag: uint
+  [32] textAlignHorizontal: TextAlignHorizontal
+  [84] textAlignHorizontalTag: uint
+  [33] textAlignVertical: TextAlignVertical
+  [85] textAlignVerticalTag: uint
+  [34] textCase: TextCase
+  [86] textCaseTag: uint
+  [35] textDecoration: TextDecoration
+  [87] textDecorationTag: uint
+  [40] lineHeight: Number
+  [92] lineHeightTag: uint
+  [41] fontName: FontName
+  [93] fontNameTag: uint
+  [42] textData: TextData
+  [94] textDataTag: uint
+  [359] derivedTextData: DerivedTextData
+  [127] fontVariantCommonLigatures: bool
+  [128] fontVariantContextualLigatures: bool
+  [129] fontVariantDiscretionaryLigatures: bool
+  [130] fontVariantHistoricalLigatures: bool
+  [131] fontVariantOrdinal: bool
+  [132] fontVariantSlashedZero: bool
+  [133] fontVariantNumericFigure: FontVariantNumericFigure
+  [134] fontVariantNumericSpacing: FontVariantNumericSpacing
+  [135] fontVariantNumericFraction: FontVariantNumericFraction
+  [136] fontVariantCaps: FontVariantCaps
+  [137] fontVariantPosition: FontVariantPosition
+  [165] letterSpacing: Number
+  [202] fontVersion: string
+  [322] leadingTrim: LeadingTrim
+  [337] hangingPunctuation: bool
+  [339] hangingList: bool
+  [550] fallbackGlyphs: bool
+  [351] maxLines: int
+  [417] responsiveTextStyleVariants: ResponsiveTextStyleVariant[]
+  [352] sectionStatus: SectionStatus
+  [355] sectionStatusInfo: SectionStatusInfo
+  [203] textUserLayoutVersion: uint
+  [396] textExplicitLayoutVersion: uint
+  [205] toggledOnOTFeatures: OpenTypeFeature[]
+  [206] toggledOffOTFeatures: OpenTypeFeature[]
+  [223] hyperlink: Hyperlink
+  [340] mention: Mention
+  [260] fontVariations: FontVariation[]
+  [279] textBidiVersion: uint
+  [280] textTruncation: TextTruncation
+  [292] hasHadRTLText: bool
+  [391] emojiImageSet: EmojiImageSet
+  [392] slideThumbnailHash: string
+  [6] visible: bool
+  [58] visibleTag: uint
+  [7] locked: bool
+  [59] lockedTag: uint
+  [434] lockMode: LockMode
+  [8] opacity: float
+  [60] opacityTag: uint
+  [9] blendMode: BlendMode
+  [61] blendModeTag: uint
+  [11] size: Vector
+  [63] sizeTag: uint
+  [12] transform: Matrix
+  [64] transformTag: uint
+  [13] dashPattern: float[]
+  [65] dashPatternTag: uint
+  [16] mask: bool
+  [68] maskTag: uint
+  [424] rotationOrigin: Vector
+  [18] maskIsOutline: bool
+  [70] maskIsOutlineTag: uint
+  [317] maskType: MaskType
+  [19] backgroundOpacity: float
+  [71] backgroundOpacityTag: uint
+  [20] cornerRadius: float
+  [72] cornerRadiusTag: uint
+  [26] strokeWeight: float
+  [78] strokeWeightTag: uint
+  [29] strokeAlign: StrokeAlign
+  [81] strokeAlignTag: uint
+  [30] strokeCap: StrokeCap
+  [82] strokeCapTag: uint
+  [497] strokeCapSize: Number
+  [31] strokeJoin: StrokeJoin
+  [83] strokeJoinTag: uint
+  [38] fillPaints: Paint[]
+  [90] fillPaintsTag: uint
+  [39] strokePaints: Paint[]
+  [91] strokePaintsTag: uint
+  [43] effects: Effect[]
+  [95] effectsTag: uint
+  [50] backgroundColor: Color
+  [102] backgroundColorTag: uint
+  [51] fillGeometry: Path[]
+  [103] fillGeometryTag: uint
+  [52] strokeGeometry: Path[]
+  [104] strokeGeometryTag: uint
+  [564] offsetFillMaskGeometry: Path[]
+  [411] textDecorationFillPaints: Paint[]
+  [412] textDecorationSkipInk: bool
+  [413] textUnderlineOffset: Number
+  [415] textDecorationThickness: Number
+  [416] textDecorationStyle: TextDecorationStyle
+  [455] transformModifiers: TransformModifier[]
+  [570] transform3d: Transform3d
+  [571] strokeData: StrokeData
+  [572] scene3d: Scene3d
+  [587] transformOrigin: TransformOrigin
+  [145] rectangleTopLeftCornerRadius: float
+  [146] rectangleTopRightCornerRadius: float
+  [147] rectangleBottomLeftCornerRadius: float
+  [148] rectangleBottomRightCornerRadius: float
+  [149] rectangleCornerRadiiIndependent: bool
+  [150] rectangleCornerToolIndependent: bool
+  [151] proportionsConstrained: bool
+  [423] targetAspectRatio: OptionalVector
+  [258] useAbsoluteBounds: bool
+  [287] borderTopHidden: bool
+  [288] borderBottomHidden: bool
+  [289] borderLeftHidden: bool
+  [290] borderRightHidden: bool
+  [294] bordersTakeSpace: bool
+  [295] borderTopWeight: float
+  [296] borderBottomWeight: float
+  [297] borderLeftWeight: float
+  [298] borderRightWeight: float
+  [299] borderStrokeWeightsIndependent: bool
+  [28] horizontalConstraint: ConstraintType
+  [80] horizontalConstraintTag: uint
+  [105] stackMode: StackMode
+  [106] stackModeTag: uint
+  [107] stackSpacing: float
+  [108] stackSpacingTag: uint
+  [109] stackPadding: float
+  [110] stackPaddingTag: uint
+  [120] stackCounterAlign: StackCounterAlign
+  [121] stackJustify: StackJustify
+  [208] stackAlign: StackAlign
+  [209] stackHorizontalPadding: float
+  [210] stackVerticalPadding: float
+  [211] stackWidth: StackSize
+  [212] stackHeight: StackSize
+  [229] stackPrimarySizing: StackSize
+  [230] stackPrimaryAlignItems: StackJustify
+  [231] stackCounterAlignItems: StackAlign
+  [232] stackChildPrimaryGrow: float
+  [233] stackPaddingRight: float
+  [234] stackPaddingBottom: float
+  [236] stackChildAlignSelf: StackCounterAlign
+  [269] stackPositioning: StackPositioning
+  [271] stackReverseZIndex: bool
+  [323] stackWrap: StackWrap
+  [324] stackCounterSpacing: float
+  [325] minSize: OptionalVector
+  [326] maxSize: OptionalVector
+  [343] stackCounterAlignContent: StackCounterAlignContent
+  [406] sortedMovingChildIndices: int[]
+  [574] stackLayoutVersion: uint
+  [435] gridRows: GUIDPositionMap
+  [436] gridColumns: GUIDPositionMap
+  [437] gridRowGap: float
+  [438] gridColumnGap: float
+  [439] gridRowAnchor: GUID
+  [440] gridColumnAnchor: GUID
+  [441] gridRowSpan: uint
+  [442] gridColumnSpan: uint
+  [474] gridColumnsSizing: GUIDGridTrackSizeMap
+  [475] gridRowsSizing: GUIDGridTrackSizeMap
+  [476] gridChildVerticalAlign: GridChildAlign
+  [477] gridChildHorizontalAlign: GridChildAlign
+  [555] gridAutoTracks: GridAutoTracks
+  [556] gridReflowEnabled: bool
+  [344] isSnakeGameBoard: bool
+  [139] transitionNodeID: GUID
+  [140] prototypeStartNodeID: GUID
+  [141] prototypeBackgroundColor: Color
+  [153] transitionInfo: TransitionInfo
+  [154] transitionType: TransitionType
+  [155] transitionDuration: float
+  [156] easingType: EasingType
+  [181] transitionPreserveScroll: bool
+  [182] connectionType: ConnectionType
+  [183] connectionURL: string
+  [184] prototypeDevice: PrototypeDevice
+  [187] interactionType: InteractionType
+  [188] transitionTimeout: float
+  [189] interactionMaintained: bool
+  [190] interactionDuration: float
+  [192] destinationIsOverlay: bool
+  [207] transitionShouldSmartAnimate: bool
+  [226] prototypeInteractions: PrototypeInteraction[]
+  [426] objectAnimations: PrototypeInteraction[]
+  [249] prototypeStartingPoint: PrototypeStartingPoint
+  [204] pluginData: PluginData[]
+  [219] pluginRelaunchData: PluginRelaunchData[]
+  [242] connectorStart: ConnectorEndpoint
+  [243] connectorEnd: ConnectorEndpoint
+  [244] connectorLineStyle: ConnectorLineStyle
+  [245] connectorStartCap: StrokeCap
+  [246] connectorEndCap: StrokeCap
+  [253] connectorControlPoints: ConnectorControlPoint[]
+  [479] connectorBezierControlPoints: ConnectorControlPoint[]
+  [255] connectorTextMidpoint: ConnectorTextMidpoint
+  [373] connectorType: ConnectorType
+  [533] connectorVersion: int
+  [369] annotations: Annotation[]
+  [384] measurements: AnnotationMeasurement[]
+  [453] annotationCategories: AnnotationCategories
+  [241] shapeWithTextType: ShapeWithTextType
+  [247] shapeUserHeight: float
+  [530] isStrokePaintDerived: bool
+  [254] derivedImmutableFrameData: DerivedImmutableFrameData
+  [338] derivedImmutableFrameDataVersion: MultiplayerFieldVersion
+  [240] nodeGenerationData: NodeGenerationData
+  [491] jsxData: JsxData
+  [492] derivedJsxData: DerivedJsxData
+  [493] stableKey: string
+  [259] codeBlockLanguage: CodeBlockLanguage
+  [433] codeBlockTheme: CodeBlockTheme
+  [278] linkPreviewData: LinkPreviewData
+  [282] shapeTruncates: bool
+  [283] sectionContentsHidden: bool
+  [300] videoPlayback: VideoPlayback
+  [301] stampData: StampData
+  [370] sectionPresetInfo: SectionPresetInfo
+  [409] platformShapeDefinition: PlatformShapeDefinition
+  [273] widgetSyncedState: MultiplayerMap
+  [274] widgetSyncCursor: uint
+  [275] widgetDerivedSubtreeCursor: WidgetDerivedSubtreeCursor
+  [276] widgetCachedAncestor: WidgetPointer
+  [285] widgetInputBehavior: WidgetInputBehavior
+  [286] widgetTooltip: string
+  [291] widgetHoverStyle: WidgetHoverStyle
+  [293] isWidgetStickable: bool
+  [360] shouldHideCursorsOnWidgetHover: bool
+  [262] widgetMetadata: WidgetMetadata
+  [263] widgetEvents: WidgetEvent[]
+  [265] widgetPropertyMenuItems: WidgetPropertyMenuItem[]
+  [401] widgetInputTextNodeType: WidgetInputTextNodeType
+  [489] jsxProps: MultiplayerMap
+  [308] tableRowPositions: TableRowColumnPositionMap
+  [309] tableColumnPositions: TableRowColumnPositionMap
+  [310] tableRowHeights: TableRowColumnSizeMap
+  [311] tableColumnWidths: TableRowColumnSizeMap
+  [538] tableMergedCells: TableMergedCellMap
+  [371] interactiveSlideConfigData: MultiplayerMap
+  [372] interactiveSlideParticipantData: MultiplayerMap
+  [402] flappType: FlappType
+  [486] isEmbeddedPrototype: bool
+  [389] slideSpeakerNotes: string
+  [410] isSkippedSlide: bool
+  [573] presentationOutlines: MultiplayerMap
+  [379] themeID: ThemeID
+  [381] slideThemeData: SlideThemeData
+  [390] slideThemeMap: SlideThemeMap
+  [393] slideTemplateFileKey: string
+  [443] slideNumber: SlideNumber
+  [456] slideNumberSeparator: string
+  [363] diagramParentId: GUID
+  [362] layoutRoot: GUID
+  [364] layoutPosition: string
+  [366] diagramLayoutRuleType: DiagramLayoutRuleType
+  [367] diagramParentIndex: DiagramParentIndex
+  [368] diagramLayoutPaused: DiagramLayoutPaused
+  [380] isPageDivider: bool
+  [251] internalEnumForTest: InternalEnumForTest
+  [257] internalDataForTest: InternalDataForTest
+  [14] autoRename: bool
+  [66] autoRenameTag: uint
+  [15] backgroundEnabled: bool
+  [67] backgroundEnabledTag: uint
+  [17] exportContentsOnly: bool
+  [69] exportContentsOnlyTag: uint
+  [25] miterLimit: float
+  [77] miterLimitTag: uint
+  [27] textTracking: float
+  [79] textTrackingTag: uint
+  [37] verticalConstraint: ConstraintType
+  [89] verticalConstraintTag: uint
+  [45] exportSettings: ExportSettings[]
+  [97] exportSettingsTag: uint
+  [46] textAutoResize: TextAutoResize
+  [98] textAutoResizeTag: uint
+  [47] layoutGrids: LayoutGrid[]
+  [99] layoutGridsTag: uint
+  [115] frameMaskDisabled: bool
+  [116] frameMaskDisabledTag: uint
+  [117] resizeToFit: bool
+  [118] resizeToFitTag: uint
+  [36] booleanOperation: BooleanOperation
+  [88] booleanOperationTag: uint
+  [44] handleMirroring: VectorMirror
+  [96] handleMirroringTag: uint
+  [10] count: uint
+  [62] countTag: uint
+  [24] starInnerScale: float
+  [76] starInnerScaleTag: uint
+  [195] arcData: ArcData
+  [48] vectorData: VectorData
+  [100] vectorDataTag: uint
+  [425] vectorOperationVersion: uint
+  [432] textPathStart: TextPathStart
+  [119] exportBackgroundDisabled: bool
+  [138] guides: Guide[]
+  [142] internalOnly: bool
+  [159] scrollDirection: ScrollDirection
+  [160] cornerSmoothing: float
+  [166] scrollOffset: Vector
+  [175] exportTextAsSVGText: bool
+  [178] scrollContractedState: ScrollContractedState
+  [179] contractedSize: Vector
+  [180] fixedChildrenDivider: string
+  [186] scrollBehavior: ScrollBehavior
+  [196] derivedSymbolDataLayoutVersion: int
+  [197] navigationType: NavigationType
+  [198] overlayPositionType: OverlayPositionType
+  [199] overlayRelativePosition: Vector
+  [200] overlayBackgroundInteraction: OverlayBackgroundInteraction
+  [201] overlayBackgroundAppearance: OverlayBackgroundAppearance
+  [213] overrideKey: GUID
+  [220] containerSupportsFillStrokeAndCorners: bool
+  [221] stackCounterSizing: StackSize
+  [222] containersSupportFillStrokeAndCorners: bool
+  [224] keyTrigger: KeyTrigger
+  [227] voiceEventPhrase: string
+  [235] ancestorPathBeforeDeletion: GUID[]
+  [237] symbolLinks: SymbolLink[]
+  [239] textListData: TextListData
+  [261] detachOpticalSizeFromFontSize: bool
+  [264] listSpacing: float
+  [270] embedData: EmbedData
+  [272] richMediaData: RichMediaData
+  [277] renderedSyncedState: MultiplayerMap
+  [284] simplifyInstancePanels: bool
+  [302] accessibleHTMLTag: HTMLTag
+  [303] ariaRole: ARIARole
+  [357] ariaAttributes: ARIAAttributesMap
+  [304] accessibleLabel: string
+  [490] isDecorativeImage: bool
+  [306] variableData: VariableData
+  [307] variableConsumptionMap: VariableDataMap
+  [316] variableModeBySetMap: VariableModeBySetMap
+  [312] variableSetModes: VariableSetMode[]
+  [313] variableSetID: VariableSetID
+  [314] variableResolvedType: VariableResolvedDataType
+  [315] variableDataValues: VariableDataValues
+  [350] variableTokenName: string
+  [566] timingDisplayUnit: VariableTimingDisplayUnit
+  [353] variableScopes: VariableScope[]
+  [445] parameterConsumptionMap: VariableDataMap
+  [358] codeSyntax: CodeSyntaxMap
+  [388] pasteSource: PasteSource
+  [397] pageType: EditorType
+  [446] strokeBrushGuid: GUID
+  [482] strokeSeed: uint64
+  [447] variableWidthPoints: VariableWidthPoint[]
+  [448] dynamicStrokeSettings: DynamicStrokeSettings
+  [449] scatterStrokeSettings: ScatterStrokeSettings
+  [450] stretchStrokeSettings: StretchStrokeSettings
+  [488] scatterBrushTransforms: Matrix[]
+  [452] brushType: BrushType
+  [542] pathTrim: OptionalVector
+  [554] strokeOffset: float
+  [377] backingVariableSetId: VariableSetID
+  [464] overriddenVariableId: VariableID
+  [378] backingVariableId: VariableIdOrVariableOverrideId
+  [385] isCollectionExtendable: bool
+  [386] rootVariableKey: string
+  [517] inheritedVariableIds: InheritedVariablesData
+  [361] handoffStatusMap: HandoffStatusMap
+  [327] agendaPositionMap: AgendaPositionMap
+  [328] agendaMetadataMap: AgendaMetadataMap
+  [329] migrationStatus: MigrationStatus
+  [330] isSoftDeleted: bool
+  [331] editInfo: EditInfo
+  [341] colorProfile: ColorProfile
+  [342] detachedSymbolId: SymbolId
+  [346] childReadingDirection: ChildReadingDirection
+  [347] readingIndex: string
+  [349] documentColorProfile: DocumentColorProfile
+  [354] developerRelatedLinks: DeveloperRelatedLink[]
+  [356] slideActiveThemeLibKey: string
+  [365] editScopeInfo: EditScopeInfo
+  [374] semanticWeight: SemanticWeight
+  [375] semanticItalic: SemanticItalic
+  [403] areSlidesManuallyIndented: bool
+  [387] isResponsiveSet: bool
+  [500] derivedBreakpointData: DerivedBreakpointData
+  [398] defaultResponsiveSetId: GUID
+  [458] isPrimaryBreakpoint: bool
+  [457] primaryResponsiveNodeId: GUID
+  [462] multiEditGlueId: GUID
+  [501] breakpointMinWidth: float
+  [522] isBreakpointInFocus: bool
+  [400] responsiveSetSettings: ResponsiveSetSettings
+  [404] behaviors: NodeBehaviors
+  [414] sourceCode: string
+  [534] sourceCodeCollaborativeTextVersion: CollaborativeTextOpID[]
+  [444] collaborativeSourceCode: CollaborativePlainText
+  [427] belongsToCodeLibraryId: CodeLibraryId
+  [467] importedCodeFiles: ImportedCodeFiles
+  [468] codeFileCanvasNodeId: CanvasNodeId
+  [498] isEntrypointCodeFile: bool
+  [502] componentOrStateGroupKey: string
+  [503] componentOrStateGroupVersion: uint
+  [504] sourceCodeLibraryKey: string
+  [515] sourceCodeLibraryKeys: string[]
+  [524] usedMakeLibraries: UsedMakeLibrary[]
+  [518] makeLibraryComponentId: string
+  [520] shouldHidePreviewForMakeKitCreation: bool
+  [551] isMakeKit: bool
+  [531] codePreviewSettings: PrototypeDevice
+  [525] codeExamples: CodeExample[]
+  [428] exportedFromCodeFileId: CodeFileId
+  [430] codeExportName: string
+  [547] codeComponentDescription: string
+  [429] backingCodeComponentId: CodeComponentId
+  [487] isMainCodeComponent: bool
+  [431] codeSnapshotState: CodeSnapshotState
+  [451] chatMessages: NodeChatMessage[]
+  [485] chatCompressionState: NodeChatCompressionState
+  [496] aiChatThread: AIChatThread
+  [484] codeChatMessagesKey: string
+  [459] codeSnapshot: CodeSnapshot
+  [480] codeSnapshotInvalidatedAt: uint
+  [465] isCodeBehavior: bool
+  [469] autoForkCode: bool
+  [470] hasBeenManuallyRenamed: bool
+  [471] codeCreatedFromDesign: bool
+  [481] codeCreatedFromDesignNodeId: CanvasNodeId
+  [473] imageImports: ImageImportMap
+  [516] codeObjectType: CodeObjectType
+  [472] codeFilePath: string
+  [478] codeBehaviorData: CodeBehaviorData
+  [519] codeLibraryFormat: uint
+  [527] isCodePreviewPlayingOnCanvas: bool
+  [532] codeEmbedInfo: CodeEmbedInfo
+  [546] isEmbedCodeLayer: bool
+  [558] codeSourceInfo: CodeSourceInfo
+  [536] mimeType: string
+  [537] blobRef: byte[]
+  [419] cmsSelector: CMSSelector
+  [420] cmsConsumptionMap: CMSConsumptionMap
+  [460] cmsRichTextStyleMap: CMSRichTextStyleMap
+  [539] repeaterSymbolId: SymbolId
+  [540] repeaterCmsOverrideData: RepeaterCmsOverrideData
+  [549] repeaterSymbolOverrideData: RepeaterSymbolOverrideData
+  [541] repeaterOverrideData: RepeaterOverrideData
+  [405] aiEditedNodeChangeFieldNumbers: uint[]
+  [408] aiEditScopeLabel: string
+  [407] firstDraftData: FirstDraftData
+  [418] firstDraftKitElementData: FirstDraftKitElementData
+  [421] cooperRevertData: CooperRevertData
+  [461] cooperTemplateData: CooperTemplateData
+  [528] buzzApprovalRequests: BuzzApprovalRequests
+  [529] buzzApprovalNodeStatusInfo: BuzzApprovalNodeStatusInfo
+  [422] hubFileAttribution: HubFileAttribution
+  [454] managedStringData: ManagedStringData
+  [466] thumbnailInfo: ThumbnailInfo
+  [494] aiCanvasPrompt: AiCanvasPrompt
+  [499] backingNodeId: CanvasNodeId
+  [548] pageStatus: string
+  [523] motionTransform: TRSSTransform2D
+  [506] timelinePosition: int64
+  [507] keyframeValue: KeyframeValueData
+  [586] keyframeValueRef: VariableData
+  [505] interpolationType: InterpolationType
+  [508] bezierHandles: BezierHandles
+  [535] easingData: EasingData
+  [509] keyframeOperation: KeyframeOperation
+  [510] timelinePositionType: TimelinePositionType
+  [545] isClip: bool
+  [511] clipId: GUID
+  [512] timelineDuration: uint64
+  [513] timelineOffset: int64
+  [543] timelineDisabled: bool
+  [514] playbackStyle: PlaybackStyle
+  [552] timelineDefinitions: TimelineDefinitionsMap
+  [553] timelineAssignments: TimelineAssignmentsMap
+  [521] animationPresets: AnimationPresets
+  [582] styleIdsForAnimation: StyleIdForAnimation[]
+  [583] backingAnimationPresetId: AnimationPresetId
+  [568] tools: Tools
+  [569] customEffects: CustomEffects
+  [526] transitionOverrides: TransitionOverrideData
+  [544] useLegacySmartAnimate: bool
+  [557] sourceControlConfig: SourceControlConfig
+  [559] specBlockType: SpecBlockType
+  [560] specBlockContent: CollaborativePlainText
+  [561] specCodeBlockLanguage: string
+  [562] specBlockTableAlignment: string
+  [563] specBlockIndentLevel: int
+  [575] specImageHash: string
+  [576] specWidth: int
+  [577] specHeight: int
+  [578] specBlockTableRowHeights: TableRowColumnSizeMap
+  [579] specBlockTableColumnWidths: TableRowColumnSizeMap
+  [565] placeholder: bool
+  [584] placeholderClientLifecycleId: string
+  [585] placeholderInvalidateAt: int
+  [567] disableJitDst: bool
+}
+
+MESSAGE CookieBannerText {
+  [1] bannerHeader: string
+  [2] bannerDisclaimerExplicit: string
+  [3] bannerDisclaimerImplicit: string
+  [4] policyLabel: string
+  [5] acceptText: string
+  [6] acknowledgeText: string
+  [7] manageText: string
+  [8] rejectText: string
+  [9] necessaryText: string
+  [10] necessaryDescription: string
+  [11] analyticsText: string
+  [12] analyticsDescription: string
+  [13] preferencesText: string
+  [14] preferencesDescription: string
+  [15] marketingText: string
+  [16] marketingDescription: string
+  [17] saveLabel: string
+  [18] triggerLabel: string
+}
+
+ENUM CookieXAlignment {
+  LEFT = 0
+  CENTER = 1
+  RIGHT = 2
+}
+
+ENUM CookieYAlignment {
+  TOP = 0
+  CENTER = 1
+  BOTTOM = 2
+}
+
+MESSAGE CMSRichTextStyleMap {
+  [1] entries: CMSRichTextStyleEntry[]
+}
+
+MESSAGE CMSRichTextStyleEntry {
+  [1] styleClass: CMSRichTextStyleClass
+  [2] textDescriptor: CMSRichTextDescriptor
+}
+
+ENUM CMSRichTextStyleClass {
+  HEADING1 = 0
+  HEADING2 = 1
+  HEADING3 = 2
+  HEADING4 = 3
+  HEADING5 = 4
+  HEADING6 = 5
+  PARAGRAPH = 6
+  LINK = 7
+  BLOCKQUOTE = 8
+}
+
+MESSAGE CMSRichTextDescriptor {
+  [1] textStyleId: StyleId
+  [2] fontNameVariants: FontName[]
+}
+
+ENUM ManagedStringNodeType {
+  TEXT = 0
+  CONCATENATE = 1
+  PLURAL = 2
+  PLACEHOLDER = 3
+}
+
+MESSAGE ManagedStringNode {
+  [1] type: ManagedStringNodeType
+  [2] textNodeData: ManagedStringTextNodeData
+  [3] concatenateNodeData: ManagedStringConcatenateAstNodeData
+  [4] pluralNodeData: ManagedStringPluralAstNodeData
+  [5] placeholderNodeData: ManagedStringPlaceholderAstNodeData
+}
+
+MESSAGE ManagedStringTextNodeData {
+  [1] value: string
+}
+
+MESSAGE ManagedStringConcatenateAstNodeData {
+  [1] values: ManagedStringNode[]
+}
+
+MESSAGE ManagedStringPluralAstNodeData {
+  [1] identifier: string
+  [2] conditions: ManagedStringPluralTypeMapEntry[]
+}
+
+MESSAGE ManagedStringPlaceholderAstNodeData {
+  [1] identifier: string
+  [2] formatType: ManagedStringFormatType
+  [3] formatPattern: string
+}
+
+MESSAGE WidgetHoverStyle {
+  [1] fillPaints: Paint[]
+  [2] strokePaints: Paint[]
+  [3] opacity: float
+  [4] areFillPaintsSet: bool
+  [5] areStrokePaintsSet: bool
+  [6] isOpacitySet: bool
+}
+
+MESSAGE GUIDPositionMap {
+  [1] entries: GUIDPositionMapEntry[]
+}
+
+MESSAGE GUIDPositionMapEntry {
+  [1] id: GUID
+  [2] position: string
+}
+
+MESSAGE GUIDGridTrackSizeMap {
+  [1] entries: GUIDGridTrackSizeMapEntry[]
+}
+
+MESSAGE GUIDGridTrackSizeMapEntry {
+  [1] id: GUID
+  [2] trackSize: GridTrackSize
+}
+
+MESSAGE GridTrackSizingFunction {
+  [1] type: GridTrackSizingType
+  [2] value: float
+}
+
+ENUM GridTrackSizingType {
+  FLEX = 0
+  FIXED = 1
+  HUG = 2
+}
+
+ENUM DiagramLayoutRuleType {
+  NONE = 0
+  TREE = 1
+}
+
+ENUM DiagramLayoutPaused {
+  NO = 0
+  YES = 1
+}
+
+ENUM ComponentPropNodeField {
+  VISIBLE = 0
+  TEXT_DATA = 1
+  OVERRIDDEN_SYMBOL_ID = 2
+  INHERIT_FILL_STYLE_ID = 3
+  SLOT_CONTENT_ID = 4
+}
+
+ENUM WidgetInputTextNodeType {
+  WIDGET_CONTROLLED = 0
+  RICH_TEXT = 1
+}
+
+MESSAGE TextListData {
+  [1] listID: int
+  [2] bulletType: BulletType
+  [3] indentationLevel: int
+  [4] lineNumber: int
+}
+
+MESSAGE TextLineData {
+  [1] lineType: LineType
+  [10] styleId: int
+  [2] indentationLevel: int
+  [9] sourceDirectionality: SourceDirectionality
+  [3] directionality: Directionality
+  [4] directionalityIntent: DirectionalityIntent
+  [5] downgradeStyleId: int
+  [6] consistencyStyleId: int
+  [7] listStartOffset: int
+  [8] isFirstLineOfList: bool
+}
+
+MESSAGE DerivedTextLineData {
+  [1] directionality: Directionality
+}
+
+MESSAGE TextCursor {
+  [1] selectionBox: Rect
+  [2] canvasGuid: GUID
+  [3] textNodeGuid: GUID
+}
+
+MESSAGE TextSelection {
+  [1] selectionBoxes: Rect[]
+  [2] canvasGuid: GUID
+  [3] textNodeGuid: GUID
+  [4] textSelectionRange: Vector
+  [5] textNodeOrContainingIfGuid: GUID
+  [6] tableCellRowId: GUID
+  [7] tableCellColId: GUID
+}
+
+MESSAGE NodeStatusChange {
+  [1] nodeIds: GUID[]
+  [2] statusInfo: SectionStatusInfo
+}
+
+MESSAGE NodeChangesMetadata {
+  [1] blobsFieldOffset: uint
+}
+
+MESSAGE Message {
+  [1] type: MessageType
+  [2] sessionID: uint
+  [42] stableSessionID: string
+  [3] ackID: uint
+  [37] isRetransmission: bool
+  [4] nodeChanges: NodeChange[]
+  [5] userChanges: UserChange[]
+  [32] interactiveSlideElementChange: InteractiveSlideElementChange
+  [36] nodeStatusChange: NodeStatusChange
+  [44] buzzApprovalChange: BuzzApprovalChange
+  [6] blobs: Blob[]
+  [30] blobBaseIndex: uint
+  [7] signalName: string
+  [8] access: Access
+  [9] styleSetName: string
+  [10] styleSetType: StyleSetType
+  [11] styleSetContentType: StyleSetContentType
+  [12] pasteID: int
+  [13] pasteOffset: Vector
+  [14] pasteFileKey: string
+  [15] signalPayload: string
+  [16] sceneGraphQueries: SceneGraphQuery[]
+  [17] nodeChangesMetadata: NodeChangesMetadata
+  [18] fileVersion: uint
+  [19] pasteIsPartiallyOutsideEnclosingFrame: bool
+  [20] pastePageId: GUID
+  [21] isCut: bool
+  [22] localUndoStack: Message[]
+  [23] localRedoStack: Message[]
+  [24] broadcasts: ClientBroadcast[]
+  [25] reconnectSequenceNumber: uint
+  [26] pasteBranchSourceFileKey: string
+  [27] pasteEditorType: EditorType
+  [28] postSyncActions: string
+  [29] publishedAssetGuids: GUID[]
+  [31] dirtyFromInitialLoad: bool
+  [33] clipboardSelectionRegions: ClipboardSelectionRegion[]
+  [34] encodedOffsetsIndex: EncodedOffsetsIndex
+  [35] hasRepeatingContent: bool
+  [38] sentTimestamp: uint64
+  [39] annotationCategories: AnnotationCategory[]
+  [40] clientRenderedMetadata: ClientRenderedMetadata
+  [41] pasteAssetType: PasteAssetType
+  [43] objectAnimations: ObjectAnimationList
+  [45] sceneGraphQueryMode: SceneGraphQueryMode
+}
+
+STRUCT GUIDAndEncodedOffset {
+  [1] guid: GUID
+  [2] offset: uint
+}
+
+MESSAGE VariableFontStyle {
+  [1] asString: VariableData
+  [2] asFloat: VariableData
+  [3] asVariations: VariableData
+}
+
+MESSAGE ImageParameterValue {
+  [1] image: Image
+  [2] imageThumbnail: Image
+  [6] animatedImage: Image
+  [3] altText: string
+  [4] originalImageHeight: uint
+  [5] originalImageWidth: uint
+  [7] animationFrame: uint
+}
+
+MESSAGE NodeFieldAlias {
+  [1] stablePathToNode: GUIDPath
+  [2] nodeField: NodeFieldAliasType
+  [3] indexOrKey: string
+}
+
+ENUM NodeFieldAliasType {
+  MISSING = 0
+  COMPONENT_PROP_ASSIGNMENTS = 1
+}
+
+MESSAGE CustomEffectId {
+  [1] guid: GUID
+  [2] assetRef: AssetRef
+}
+
+MESSAGE StyleAnimation {
+  [1] animationPresetId: AnimationPresetId
+}
+
+MESSAGE StyleIdForAnimation {
+  [1] id: GUID
+  [2] timelineDefId: GUID
+  [3] animationStyleId: StyleId
+  [4] timelineOffset: int64
+}
+
+MESSAGE CustomEffects {
+  [1] customEffects: CustomEffectData[]
+}
+
+MESSAGE CustomEffectData {
+  [1] customEffectId: CustomEffectId
+}
+
+ENUM KeyframeBindingEffectParametrizedField {
+  MISSING = 0
+  OFFSET_X = 1
+  OFFSET_Y = 2
+  RADIUS = 3
+  SPREAD = 4
+  COLOR = 5
+  REFRACTION_RADIUS = 6
+  SPECULAR_ANGLE = 7
+  SPECULAR_INTENSITY = 8
+  CHROMATIC_ABERRATION = 9
+  SPLAY = 10
+  REFRACTION_INTENSITY = 11
+  START_RADIUS = 12
+  START_OFFSET_X = 13
+  START_OFFSET_Y = 14
+  END_OFFSET_X = 15
+  END_OFFSET_Y = 16
+  NOISE_SIZE_X = 17
+  NOISE_SIZE_Y = 18
+  DENSITY = 19
+  EFFECT_OPACITY = 20
+  SECONDARY_COLOR = 21
+}
+
+MESSAGE NodeContentsKeyframeBindingLocation {
+  [1] topLevelField: TransitionOverrideBindingTopLevelField
+  [2] parameterFieldValue: VariableField
+  [3] index: int
+  [4] effectParametrizedFieldValue: KeyframeBindingEffectParametrizedField
+}
+
+MESSAGE OptionalVector {
+  [1] value: Vector
+}
+
+MESSAGE NodeFieldMap {
+  [1] entries: NodeFieldMapEntry[]
+}
+
+MESSAGE NodeFieldMapEntry {
+  [1] guid: GUID
+  [2] field: uint
+  [3] lastModifiedSequenceNumber: uint
+}
+
+ENUM ColorProfile {
+  SRGB = 0
+  DISPLAY_P3 = 1
+}
+
+ENUM DocumentColorProfile {
+  LEGACY = 0
+  SRGB = 1
+  DISPLAY_P3 = 2
+}
+
+ENUM EmojiImageSet {
+  APPLE = 0
+  NOTO = 1
+}
+
+MESSAGE NodeBehaviors {
+  [1] link: LinkBehavior
+  [2] appear: AppearBehavior
+  [3] hover: HoverBehavior
+  [4] press: PressBehavior
+  [5] focus: FocusBehavior
+  [6] scrollParallax: ScrollParallaxBehavior
+  [7] scrollTransform: ScrollTransformBehavior
+  [8] cursor: CursorBehavior
+  [9] marquee: MarqueeBehavior
+  [10] code: CodeBehavior[]
+}
+
+STRUCT IndexFontVariationAxis {
+  [1] tag: string
+  [2] name: string
+  [3] min: float
+  [4] max: float
+  [5] defaultValue: float
+}
+
+STRUCT IndexFontVariationAxisValue {
+  [1] tag: string
+  [2] value: float
+}
+
+MESSAGE IndexFontStyle {
+  [1] name: string
+  [2] postscript: string
+  [3] weight: float
+  [4] italic: bool
+  [5] stretch: float
+  [6] variationAxisValues: IndexFontVariationAxisValue[]
+}
+
+MESSAGE IndexFontFile {
+  [1] filename: string
+  [2] version: uint
+  [3] family: string
+  [4] styles: IndexFontStyle[]
+  [5] variationAxes: IndexFontVariationAxis[]
+  [6] useFontOpticalSize: bool
+}
+
+STRUCT IndexStyleRename {
+  [1] oldStyle: string
+  [2] newStyle: string
+}
+
+STRUCT IndexFamilyStylesRename {
+  [1] familyName: string
+  [2] styleRenames: IndexStyleRename[]
+}
+
+MESSAGE FontIndex {
+  [1] schemaVersion: uint
+  [2] files: IndexFontFile[]
+  [3] renames: IndexRenames
+  [4] emojis: IndexEmojis
+}
+
+ENUM NodeChatMessageType {
+  USER_MESSAGE = 0
+  ASSISTANT_MESSAGE = 1
+  TOOL_MESSAGE = 2
+  SYSTEM_MESSAGE = 3
+}
+
+MESSAGE NodeChatMessage {
+  [1] id: GUID
+  [2] type: NodeChatMessageType
+  [3] userId: string
+  [4] textContent: string
+  [5] sentAt: uint
+  [6] toolCalls: NodeChatToolCall[]
+  [7] toolResults: NodeChatToolResult[]
+  [8] sentAt64: uint64
+}
+
+MESSAGE NodeChatToolCall {
+  [1] toolCallId: string
+  [2] toolName: string
+  [3] argsJson: string
+}
+
+MESSAGE NodeChatToolResult {
+  [1] toolCallId: string
+  [2] toolName: string
+  [3] resultJson: string
+}
+
+MESSAGE NodeChatExchange {
+  [1] node: GUID
+  [2] messages: NodeChatMessage[]
+  [3] isTyping: bool
+  [4] fileUpdates: FileUpdate[]
+}
+
+MESSAGE NodeChatCompressionState {
+  [1] startIndex: uint
+  [2] summary: string
+}
+
+MESSAGE ImageImportMap {
+  [1] imports: ImageImport[]
+}
+
+MESSAGE ImageImport {
+  [1] name: string
+  [2] image: Image
+}
+
+ENUM PlaybackStyle {
+  ONCE = 0
+  LOOP = 1
+  BOOMERANG = 2
+}
