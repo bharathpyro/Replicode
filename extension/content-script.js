@@ -1376,7 +1376,37 @@
       }
     }
 
+    reconcileBorderSides(styles, computedStyle)
     return styles
+  }
+
+  // Drop or repair phantom borders. Bug pattern: when the source page sets
+  // `border-style: solid` + `border-color: <c>` but `border-width: 0`, the
+  // borders don't render. Our extractor keeps style/color (non-default) but
+  // drops width (matches the 0 default). The consumer then re-renders with
+  // CSS default `border-width: medium` (~3px) → phantom 3px borders on every
+  // element. With 180+ nested nodes that absolutely wrecks the layout.
+  //
+  // Fix: for each side, if computed width is 0, drop style/color/width
+  // entirely (the original draws no border). Otherwise, ensure width is
+  // emitted alongside style/color so default `medium` can't kick in.
+  function reconcileBorderSides(styles, computedStyle) {
+    for (const side of ["top", "right", "bottom", "left"]) {
+      const widthProp = `border-${side}-width`
+      const styleProp = `border-${side}-style`
+      const colorProp = `border-${side}-color`
+      const computedWidth = computedStyle.getPropertyValue(widthProp)
+      const widthIsZero = !computedWidth || computedWidth === "0px" || computedWidth === "0"
+      if (widthIsZero) {
+        delete styles[widthProp]
+        delete styles[styleProp]
+        delete styles[colorProp]
+      } else if (styles[styleProp] || styles[colorProp]) {
+        // Width was filtered as a default match earlier — re-emit so the
+        // browser doesn't fall back to `medium`.
+        styles[widthProp] = computedWidth
+      }
+    }
   }
 
   function collectPseudoStyles(element, pseudoName) {
@@ -1433,6 +1463,8 @@
 
       pseudoStyles[property] = value
     }
+
+    reconcileBorderSides(pseudoStyles, computedStyle)
 
     return Object.keys(pseudoStyles).length ? pseudoStyles : null
   }
@@ -2451,6 +2483,19 @@
 
   function generateClipboardExport(payload) {
     const rootClone = JSON.parse(JSON.stringify(payload.tree))
+
+    // Pre-resolve var(--name) references in the cloned tree's styles
+    // and SVG inner markup. SVG attributes like
+    //   <path fill="var(--geist-background)" stroke="var(--geist-foreground)">
+    // bypass CSS computed-style resolution, so without this step the
+    // var() literals leak into the exported HTML and the SVG renders
+    // black-on-black (since the consumer doesn't define those vars).
+    const exporter = window.ReplicodeFigmaExport
+    const varMap = (payload.metadata && payload.metadata.cssVariables) || {}
+    if (exporter && typeof exporter.preResolveCssVarsInTree === "function") {
+      exporter.preResolveCssVarsInTree(rootClone, varMap)
+    }
+
     const nodes = annotateExportTree(rootClone)
     const html = renderExportHtml(rootClone)
     const css = renderExportCss(nodes, payload.animations?.keyframes || [])

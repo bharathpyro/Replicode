@@ -647,9 +647,48 @@
     ].join("\n")
   }
 
+  // Walk a captured tree (or clone) and resolve every var(--name) reference
+  // in styles/SVG markup using the provided varMap. Mutates in place.
+  // Used by both the Figma SVG export (already inline in buildPasteableSvg)
+  // and the HTML/CSS code export, which previously skipped this step and
+  // shipped unresolved var() literals into the consumer.
+  function preResolveCssVarsInTree(node, varMap) {
+    if (!node || typeof node !== "object") return
+    if (node.styles) {
+      for (const key in node.styles) {
+        if (!Object.prototype.hasOwnProperty.call(node.styles, key)) continue
+        const v = node.styles[key]
+        if (typeof v === "string" && v.indexOf("var(") !== -1) {
+          node.styles[key] = resolveCssVarsInString(v, varMap)
+        }
+      }
+    }
+    if (typeof node.svgInnerMarkup === "string" && node.svgInnerMarkup.indexOf("var(") !== -1) {
+      node.svgInnerMarkup = resolveCssVarsInString(node.svgInnerMarkup, varMap)
+    }
+    if (Array.isArray(node.ranges)) {
+      for (const r of node.ranges) {
+        if (r && r.styles) {
+          for (const k in r.styles) {
+            if (!Object.prototype.hasOwnProperty.call(r.styles, k)) continue
+            const v = r.styles[k]
+            if (typeof v === "string" && v.indexOf("var(") !== -1) {
+              r.styles[k] = resolveCssVarsInString(v, varMap)
+            }
+          }
+        }
+      }
+    }
+    if (Array.isArray(node.children)) {
+      for (const c of node.children) preResolveCssVarsInTree(c, varMap)
+    }
+  }
+
   window.ReplicodeFigmaExport = {
     buildPayload,
     generateImportJson,
-    buildPasteableSvg
+    buildPasteableSvg,
+    resolveCssVarsInString,
+    preResolveCssVarsInTree
   }
 })()
