@@ -171,34 +171,62 @@ LayerBlur / BackgroundBlur { type, radius }
 
 ## How to fill in the **[NEEDS CAPTURE]** sections
 
-1. Open a fresh tab in Chrome, navigate to a `figma.com` design file.
-2. Create the smallest reproducible test scene: one Frame with auto-layout, containing one Rectangle and one Text node with two characters of different colors.
-3. Select the Frame, copy it (`⌘C`).
-4. Open Chrome devtools (`Option+Cmd+I`), switch to the Console.
-5. Run:
+`navigator.clipboard.read()` requires the document to be focused, but
+opening DevTools steals focus. Work around that by arming a one-shot
+click listener that fires the read after you click back into the page.
+
+1. Open Chrome, navigate to a `figma.com` design file.
+2. Build the smallest reproducible test scene: one Frame with auto-layout
+   (HORIZONTAL, padding ~16px, gap ~8px), containing one Rectangle (any
+   solid fill) and one Text node where at least two characters use
+   different colors.
+3. Select the Frame, copy with `⌘C`.
+4. Open DevTools (`⌥⌘I`), switch to Console.
+5. Paste this snippet:
+
    ```js
-   const items = await navigator.clipboard.read()
-   for (const item of items) {
-     console.log("types:", item.types)
-     for (const t of item.types) {
-       const blob = await item.getType(t)
-       const buf = new Uint8Array(await blob.arrayBuffer())
-       console.log(t, buf.length, "bytes:", Array.from(buf.slice(0, 64)).map((b) => b.toString(16).padStart(2, "0")).join(" "))
-       window.__figmaPayload = window.__figmaPayload || {}
-       window.__figmaPayload[t] = buf
-     }
-   }
+   ;(async () => {
+     await new Promise((resolve, reject) => {
+       const handler = async () => {
+         try {
+           const items = await navigator.clipboard.read()
+           const out = {}
+           for (const item of items) {
+             for (const t of item.types) {
+               const buf = new Uint8Array(await (await item.getType(t)).arrayBuffer())
+               out[t] = buf
+               console.log(
+                 t,
+                 buf.length + " bytes",
+                 "first 64:", Array.from(buf.slice(0, 64))
+                   .map((b) => b.toString(16).padStart(2, "0")).join(" ")
+               )
+             }
+           }
+           window.__figmaPayload = out
+           const figmaKeys = Object.keys(out).filter((k) => /figma|x-figma|vnd\.figma/i.test(k))
+           if (figmaKeys.length === 0) figmaKeys.push(Object.keys(out)[0])
+           for (const key of figmaKeys) {
+             const a = document.createElement("a")
+             a.href = URL.createObjectURL(new Blob([out[key]]))
+             a.download = "figma-clipboard-" + key.replace(/[^\w]/g, "_") + ".bin"
+             a.click()
+             console.log("✓ downloaded", a.download)
+           }
+           resolve(out)
+         } catch (e) { console.error(e); reject(e) }
+       }
+       document.addEventListener("click", handler, { once: true, capture: true })
+       console.log("Listener armed → click anywhere on the Figma page (not DevTools).")
+     })
+   })()
    ```
-6. Copy the console output. Save the binary payload to disk via:
-   ```js
-   const blob = new Blob([window.__figmaPayload["application/x-figma-clipboard"]])
-   const url = URL.createObjectURL(blob)
-   const a = document.createElement("a")
-   a.href = url
-   a.download = "figma-clipboard-sample.bin"
-   a.click()
-   ```
-7. Send the binary file. Phase 1 of the plan can then proceed against real bytes.
+
+6. Click anywhere on the Figma page. Console prints every clipboard MIME
+   type with byte counts + first-64-bytes hex; the Figma-flavoured
+   binaries auto-download.
+7. Share the binaries. From them we can identify the magic header,
+   message envelope, and start filling in field IDs.
 
 ## Tools we'll use
 
