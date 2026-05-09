@@ -231,20 +231,256 @@
     ].join("")
   }
 
-  // ── 8. Synthesise a scene from a Replicode capture ────────────────
+  // ── 8. Schema-shaped encoders ─────────────────────────────────────
   //
-  // Iterative work happens here. The captured Figma scene we use as a
-  // reference is a kiwi-encoded `Message` (def 428) carrying a list of
-  // `NodeChange` records (def 229). For the first ship we emit the
-  // captured fixture's bytes verbatim — that proves the wrapper works
-  // end-to-end. As we add per-NodeChange field encoders the synth
-  // function takes over from the fixture, one node type at a time.
-  function buildSceneFromCapture(_capture) {
-    // TODO(phase-2b): walk capture.tree, emit a Message containing
-    // nodeChanges = [DOCUMENT, CANVAS, ...captured-tree-mapped...].
-    // Until then, return the captured fixture so the wrapper round-
-    // trip is testable in isolation.
-    return getSceneFixture()
+  // Hand-rolled encoders for the slice of the Figma kiwi schema we
+  // need to synthesise an empty Document/Canvas/Frame paste. Field
+  // IDs and ordering match the captured schema (figma-scene.schema.bin,
+  // 584 definitions; see schema-dump.txt). Skipping the per-field
+  // *Tag companions — those are multiplayer-sync fields, not needed
+  // when the receiver is treating the payload as a paste.
+
+  // STRUCT GUID { sessionID: uint, localID: uint }
+  function writeGUID(w, value) {
+    writeVarUint(w, (value && value.sessionID) | 0)
+    writeVarUint(w, (value && value.localID) | 0)
+  }
+
+  // STRUCT Vector { x: float, y: float }
+  function writeVector(w, value) {
+    writeFloat32(w, value && value.x)
+    writeFloat32(w, value && value.y)
+  }
+
+  // STRUCT Color { r,g,b,a: float (0..1) }
+  function writeColor(w, value) {
+    writeFloat32(w, value && value.r)
+    writeFloat32(w, value && value.g)
+    writeFloat32(w, value && value.b)
+    writeFloat32(w, value == null || value.a == null ? 1 : value.a)
+  }
+
+  // STRUCT Matrix { m00..m12: float } (2D affine, row-major 2x3)
+  function writeMatrix(w, value) {
+    const v = value || {}
+    writeFloat32(w, v.m00 == null ? 1 : v.m00)
+    writeFloat32(w, v.m01 == null ? 0 : v.m01)
+    writeFloat32(w, v.m02 == null ? 0 : v.m02)
+    writeFloat32(w, v.m10 == null ? 0 : v.m10)
+    writeFloat32(w, v.m11 == null ? 1 : v.m11)
+    writeFloat32(w, v.m12 == null ? 0 : v.m12)
+  }
+
+  // STRUCT ParentIndex { guid: GUID, position: string }
+  function writeParentIndex(w, value) {
+    writeGUID(w, value && value.guid)
+    writeKiwiString(w, value && value.position)
+  }
+
+  // MESSAGE Paint — the small subset we emit (SOLID + opacity).
+  // Field IDs from schema:
+  //   [1] type: PaintType  (SOLID=0, GRADIENT_LINEAR=1, ...)
+  //   [2] color: Color
+  //   [3] opacity: float
+  //   [4] visible: bool
+  //   [5] blendMode: BlendMode
+  function writePaint(w, paint) {
+    if (!paint) {
+      w.writeByte(0) // empty message
+      return
+    }
+    if (paint.type != null) {
+      writeVarUint(w, 1)
+      writeVarUint(w, paint.type | 0)
+    }
+    if (paint.color) {
+      writeVarUint(w, 2)
+      writeColor(w, paint.color)
+    }
+    if (paint.opacity != null) {
+      writeVarUint(w, 3)
+      writeFloat32(w, paint.opacity)
+    }
+    if (paint.visible != null) {
+      writeVarUint(w, 4)
+      writeBool(w, paint.visible)
+    }
+    if (paint.blendMode != null) {
+      writeVarUint(w, 5)
+      writeVarUint(w, paint.blendMode | 0)
+    }
+    w.writeByte(0) // message terminator
+  }
+
+  // MESSAGE NodeChange — only the fields we set today. Skipping the
+  // ~580 we don't need; the receiver fills in defaults. Each field is
+  // a (varuint id, value...) pair; the message ends with varuint 0.
+  function writeNodeChange(w, n) {
+    if (!n) { w.writeByte(0); return }
+
+    if (n.guid) {
+      writeVarUint(w, 1)
+      writeGUID(w, n.guid)
+    }
+    if (n.phase != null) {
+      writeVarUint(w, 2)
+      writeVarUint(w, n.phase | 0)
+    }
+    if (n.parentIndex) {
+      writeVarUint(w, 3)
+      writeParentIndex(w, n.parentIndex)
+    }
+    if (n.type != null) {
+      writeVarUint(w, 4)
+      writeVarUint(w, n.type | 0)
+    }
+    if (n.name != null) {
+      writeVarUint(w, 5)
+      writeKiwiString(w, n.name)
+    }
+    if (n.size) {
+      writeVarUint(w, 11)
+      writeVector(w, n.size)
+    }
+    if (n.transform) {
+      writeVarUint(w, 12)
+      writeMatrix(w, n.transform)
+    }
+    if (n.fillPaints && n.fillPaints.length) {
+      writeVarUint(w, 38)
+      writeVarUint(w, n.fillPaints.length)
+      for (const p of n.fillPaints) writePaint(w, p)
+    }
+    w.writeByte(0) // message terminator
+  }
+
+  // MESSAGE Message — the top-level scene envelope. Field IDs:
+  //   [1] type: MessageType
+  //   [2] sessionID: uint
+  //   [3] ackID: uint
+  //   [4] nodeChanges: NodeChange[]
+  //   [12] pasteID: int  (zig-zag)
+  //   [14] pasteFileKey: string
+  //   [19] pasteIsPartiallyOutsideEnclosingFrame: bool
+  //   [21] isCut: bool
+  function writeMessage(w, m) {
+    writeVarUint(w, 1)
+    writeVarUint(w, m.type | 0) // 1 = NODE_CHANGES
+    writeVarUint(w, 2)
+    writeVarUint(w, (m.sessionID | 0) >>> 0)
+    writeVarUint(w, 3)
+    writeVarUint(w, (m.ackID | 0) >>> 0)
+    if (m.nodeChanges && m.nodeChanges.length) {
+      writeVarUint(w, 4)
+      writeVarUint(w, m.nodeChanges.length)
+      for (const n of m.nodeChanges) writeNodeChange(w, n)
+    }
+    if (m.pasteID != null) {
+      writeVarUint(w, 12)
+      writeVarInt(w, m.pasteID | 0)
+    }
+    if (m.pasteFileKey != null) {
+      writeVarUint(w, 14)
+      writeKiwiString(w, m.pasteFileKey)
+    }
+    writeVarUint(w, 19)
+    writeBool(w, !!m.pasteIsPartiallyOutsideEnclosingFrame)
+    writeVarUint(w, 21)
+    writeBool(w, !!m.isCut)
+    w.writeByte(0)
+  }
+
+  // ── 9. Synthesise a scene from a Replicode capture ────────────────
+  //
+  // Builds the chain Document → Canvas → root Frame (sized to match
+  // the capture's root rect, white fill). Per-child encoding is left
+  // for the next iteration — this ships a known-good empty-Frame
+  // paste so users can validate the round-trip on their own captures.
+  //
+  // Falls back to the captured fixture if the capture tree is missing
+  // a root, so the writer is never silently no-op.
+  const NODE_TYPE = { DOCUMENT: 1, CANVAS: 2, FRAME: 4 }
+  const NODE_PHASE_CREATED = 0
+  const MSG_TYPE_NODE_CHANGES = 1
+  const PAINT_TYPE_SOLID = 0
+  const BLEND_NORMAL = 1
+  const IDENTITY_TRANSFORM = { m00: 1, m01: 0, m02: 0, m10: 0, m11: 1, m12: 0 }
+  const SOLID_WHITE = { r: 1, g: 1, b: 1, a: 1 }
+
+  function pickRootRect(capture) {
+    const tree = capture && capture.tree
+    if (!tree) return null
+    const m = tree.metrics || {}
+    // Replicode metrics use { width, height }; fall back to a
+    // sensible default if those weren't captured.
+    const w = Number(m.width) || 320
+    const h = Number(m.height) || 200
+    return { width: Math.max(1, w), height: Math.max(1, h) }
+  }
+
+  function buildSceneFromCapture(capture) {
+    const root = pickRootRect(capture)
+    if (!root) return getSceneFixture()
+
+    const docGuid = { sessionID: 0, localID: 1 }
+    const canvasGuid = { sessionID: 0, localID: 2 }
+    const frameGuid = { sessionID: 0, localID: 3 }
+
+    const rootName =
+      (capture && capture.tree && (capture.tree.name || capture.tree.tag)) || "Frame"
+
+    const nodeChanges = [
+      // Document — root of the scene graph. No parentIndex.
+      {
+        guid: docGuid,
+        phase: NODE_PHASE_CREATED,
+        type: NODE_TYPE.DOCUMENT,
+        name: "Document"
+      },
+      // Page (Canvas) — direct child of the document.
+      {
+        guid: canvasGuid,
+        phase: NODE_PHASE_CREATED,
+        parentIndex: { guid: docGuid, position: "!" },
+        type: NODE_TYPE.CANVAS,
+        name: "Page 1"
+      },
+      // The actual paste payload: a single Frame sized to the capture
+      // root, white fill. Children land in a future iteration.
+      {
+        guid: frameGuid,
+        phase: NODE_PHASE_CREATED,
+        parentIndex: { guid: canvasGuid, position: "!" },
+        type: NODE_TYPE.FRAME,
+        name: rootName,
+        size: { x: root.width, y: root.height },
+        transform: IDENTITY_TRANSFORM,
+        fillPaints: [
+          {
+            type: PAINT_TYPE_SOLID,
+            color: SOLID_WHITE,
+            opacity: 1,
+            visible: true,
+            blendMode: BLEND_NORMAL
+          }
+        ]
+      }
+    ]
+
+    const message = {
+      type: MSG_TYPE_NODE_CHANGES,
+      sessionID: 0,
+      ackID: 0,
+      nodeChanges,
+      pasteID: (Math.random() * 0x7fffffff) | 0,
+      pasteFileKey: "replicode-extension",
+      pasteIsPartiallyOutsideEnclosingFrame: false,
+      isCut: false
+    }
+
+    const w = createByteWriter(512)
+    writeMessage(w, message)
+    return w.toUint8Array()
   }
 
   // ── 9. High-level entry point ─────────────────────────────────────
@@ -299,6 +535,17 @@
     getSchemaChunk,
     getSceneFixture,
     buildSceneFromCapture,
+
+    // Schema-shaped encoders (exported so Phase 2b iterations can
+    // assemble custom NodeChange records without re-implementing).
+    writeGUID,
+    writeVector,
+    writeColor,
+    writeMatrix,
+    writeParentIndex,
+    writePaint,
+    writeNodeChange,
+    writeMessage,
 
     // High-level entry point used by the Figma button.
     buildFigmaClipboardHtml,
